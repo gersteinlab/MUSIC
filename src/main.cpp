@@ -13,6 +13,7 @@
 #include "ms_profile_normalization.h"
 #include "ms_utils.h"
 #include "ms_signal_enrichment_utils.h"
+#include "ms_combinatorics.h"
 #include "ms_peak_calling_utils.h"
 #include "ms_signal_track_tools.h"
 #include "ms_ansi_string.h"
@@ -36,9 +37,14 @@ Read Preprocessing:\n\
 	-sort_reads [Reads directory] [Output directory]\n\
 	-remove_duplicates [Sorted reads directory] [Max # of duplicates per position] [Output directory]\n\
 Peak Selection:\n\
-	-get_multiscale_ERs [Options/Values]\n\
-P-val window length processing:\n\
-	-get_per_window_p_vals_vs_FC [Reads directory]\n", argv[0]);
+	-get_multiscale_broad_ERs [Options/Values]\n\
+	-get_multiscale_punctate_ERs [Options/Values]\n\
+	-get_TF_peaks [Options/Values]\n\
+Profile Outputs:\n\
+	-write_MS_decomposition [Options/Values]\n\
+Parametrization options:\n\
+	-get_per_win_p_vals_vs_FC [Options/Values]\n\
+	-get_scale_spectrum [Options/Values]\n", argv[0]);
 		exit(0);
 	}
 	
@@ -116,6 +122,11 @@ P-val window length processing:\n\
 
 		// Process per chromosome.
 		vector<char*>* chr_ids = buffer_file(chr_ids_fp);
+		if(chr_ids == NULL)
+		{
+			fprintf(stderr, "Could not fine the chromosome id's list file @ %s\n", chr_ids_fp);
+			exit(0);
+		}
 
 		char sorted_chr_ids_fp[1000];
 		sprintf(sorted_chr_ids_fp, "%s/chr_ids.txt", sorted_reads_op_dir);
@@ -248,6 +259,11 @@ if(__DUMP_PEAK_MESSAGES__)
 		char chr_ids_fp[1000];
 		sprintf(chr_ids_fp, "%s/chr_ids.txt", sorted_preprocessed_reads_dir);
 		vector<char*>* chr_ids = buffer_file(chr_ids_fp);
+		if(chr_ids == NULL)
+		{
+			fprintf(stderr, "Could not fine the chromosome id's list file @ %s\n", chr_ids_fp);
+			exit(0);
+		}
 
 		char pruned_chr_ids_fp[1000];
 		sprintf(pruned_chr_ids_fp, "%s/chr_ids.txt", pruned_reads_dir);
@@ -747,26 +763,148 @@ if(__DUMP_PEAK_MESSAGES__)
 			delete [] rev_profile;
 		} // i_chr loop.
 	} // -cross_correlation.
-	else if(strcmp(argv[1], "-write_BedGraph_per_preprocessed_reads") == 0)
+	else if(strcmp(argv[1], "-write_MS_decomposition") == 0)
 	{
+		if(argc < 5)
+		{
+			fprintf(stderr, "USAGE: %s -write_MS_decomposition [Option/Values]\n\
+	-chip [ChIP reads directory]\n\
+	-control [control reads directory]\n\
+	-mapp [multi-mapability profiles directory]\n\
+	-begin_l [First scale smoothing window length (1000)]\n\
+	-end_l [Last scale smoothing window length (16000)]\n\
+	-step [Multiplicative window length step (1.5)]\n\
+	-l_mapp [Read length of multi-mapability profiles]\n\
+	-mapp_thr [Multi-mapability signal threshold used in correction (1.2)]\n\
+	-l_frag [Fragment length (200)]\n\
+	-l_c [Mapability correction window length (2000)]\n\
+	-gamma [Min threshold for unsmoothed/smoothed (4)]\n", argv[0]);
+			exit(0);
+		}
+
+		double base_scale_l_win = 1000;
+		double end_scale_l_win = 16000; 
+		double log_step = 1.5;
+		int l_p_val_norm_win = 1750;
+		int l_mapability_filtering_win = 2000;
+		double max_normalized_mapability_signal = 1.2;
+		double filtered_vs_non_filtered_max_scaler = 4;
+		int l_fragment = 200;
+
+		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
+		bool ret = false;
+		char* chip_reads_dir = cli->get_value_by_option("-chip", ret);
+		if(!ret)
+		{
+			fprintf(stderr, "Need chip.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* mapability_signal_dir = cli->get_value_by_option("-mapp", ret);
+		if(!ret)
+		{
+			mapability_signal_dir = NULL;
+		}
+
+		ret = false;
+		char* l_read_mapability_signal_str = cli->get_value_by_option("-l_mapp", ret);
+		int l_read_mapability_signal = 0;
+		if(ret)
+		{
+			l_read_mapability_signal = atoi(l_read_mapability_signal_str);
+		}
+		else if(mapability_signal_dir != NULL)
+		{
+			fprintf(stderr, "Could not read the mapability read length.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* l_frag_str = cli->get_value_by_option("-l_frag", ret);
+		if(ret)
+		{
+			l_fragment = atoi(l_frag_str);
+		}
+
+		ret = false;
+		char* base_scale_l_win_str = cli->get_value_by_option("-begin_l", ret);
+		if(ret)
+		{
+			base_scale_l_win = atof(base_scale_l_win_str);
+		}
+
+		ret = false;
+		char* end_scale_l_win_str = cli->get_value_by_option("-end_l", ret);
+		if(ret)
+		{
+			end_scale_l_win = atof(end_scale_l_win_str);
+		}
+
+		ret = false;
+		char* log_step_str = cli->get_value_by_option("-step", ret);
+		if(ret)
+		{
+			log_step = atof(log_step_str);
+		}
+
+		ret = false;
+		char* l_p_val_norm_win_str = cli->get_value_by_option("-l_p", ret);
+		if(ret)
+		{
+			l_p_val_norm_win = atoi(l_p_val_norm_win_str);
+		}
+
+		// Mapability correction window length.
+		ret = false;
+		char* l_mapability_filtering_win_str = cli->get_value_by_option("-l_c", ret);
+		if(ret)
+		{
+			l_mapability_filtering_win = atoi(l_mapability_filtering_win_str);
+		}
+
+		ret = false;
+		char* max_normalized_mapability_signal_str = cli->get_value_by_option("-mapp_thr", ret);
+		if(ret)
+		{
+			max_normalized_mapability_signal = atof(max_normalized_mapability_signal_str);
+		}
+
+		ret = false;
+		char* filtered_vs_non_filtered_max_scaler_str = cli->get_value_by_option("-gamma", ret);
+		if(ret)
+		{
+			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
+		}
+
+		write_decomposition_bedGraphs(chip_reads_dir,
+			l_fragment,
+			mapability_signal_dir,
+			l_read_mapability_signal,
+			base_scale_l_win,
+			end_scale_l_win,
+			log_step,
+			l_mapability_filtering_win,
+			max_normalized_mapability_signal);
 	} // -write_BedGraph_per_preprocessed_reads
-	else if(strcmp(argv[1], "-get_multiscale_ERs") == 0)
+	else if(strcmp(argv[1], "-get_multiscale_broad_ERs") == 0)
 	{
 		// We need at least 5 parameters.
 		if(argc < 5)
 		{
-			fprintf(stderr, "USAGE: %s -get_multiscale_ERs [Option/Values]\n\
-							-chip [ChIP reads directory]\n\
-							-control [control reads directory]\n\
-							-mapp [multi-mapability profiles directory]\n\
-							-begin_l [First scale smoothing window length (1000)]\n\
-							-end_l [Last scale smoothing window length (16000)]\n\
-							-step [Multiplicative window length step (1.5)]\n\
-							-l_mapp [Read length of multi-mapability profiles]\n\
-							-mapp_thr [Multi-mapability signal threshold used in correction (1.2)]\n\
-							-l_frag [Fragment length (200)]\n\
-							-l_c [Mapability correction window length (2000)]\n\
-							-gamma [Min threshold for unsmoothed/smoothed (4)]\n", argv[0]);
+			fprintf(stderr, "USAGE: %s -get_multiscale_broad_ERs [Option/Values]\n\
+	-chip [ChIP reads directory]\n\
+	-control [control reads directory]\n\
+	-mapp [multi-mapability profiles directory]\n\
+	-begin_l [First scale smoothing window length (1000)]\n\
+	-end_l [Last scale smoothing window length (16000)]\n\
+	-step [Multiplicative window length step (1.5)]\n\
+	-l_mapp [Read length of multi-mapability profiles]\n\
+	-mapp_thr [Multi-mapability signal threshold used in correction (1.2)]\n\
+	-l_frag [Fragment length (200)]\n\
+	-l_c [Mapability correction window length (2000)]\n\
+	-gamma [Min threshold for unsmoothed/smoothed (4)]\n\
+	-q_val [Maximum q-value for the reported ERs]", argv[0]);
 			exit(0);
 		}
 
@@ -874,6 +1012,14 @@ if(__DUMP_PEAK_MESSAGES__)
 			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
 		}
 
+		ret = false;
+		char* q_val_str = cli->get_value_by_option("-q_val", ret);
+		double q_val_threshold = 0.05;
+		if(ret)
+		{
+			q_val_threshold = atof(q_val_str);
+		}
+
 		get_peaks(chip_reads_dir,
 			control_reads_dir,
 			l_fragment,
@@ -894,22 +1040,429 @@ if(__DUMP_PEAK_MESSAGES__)
 			false,  // do_BJ_correction_on_minima
 			true,   // do_filter_minima_per_length_min_base_scale_l_win: For broad peaks, this is set to true to enforce that there are no small weird peaks.
 			false,	// do_post_peak_p_value_minimization (p-val min)
-			.5); // The flip probability.
-	} // -get_multi_scale_ERs
-	else if(strcmp(argv[1], "-get_per_window_p_vals_vs_FC") == 0)
+			.5,		// The flip probability.
+			false,
+			q_val_threshold); 
+	} // -get_multiscale_broad_ERs
+	else if(strcmp(argv[1], "-get_multiscale_punctate_ERs") == 0)
 	{
-		// This option tries to find the p-value normalization window length that has the smallest FDR in comparison with the poisson based thresholding.
-		// -analyze_p_value_normalization_window_lengths\n
-		if(argc != 5)
+		// We need at least 5 parameters.
+		if(argc < 5)
 		{
-			fprintf(stderr, "%s -get_per_window_p_vals_vs_FC [ChIP reads directory] [Control reads directory] [Scaling factor (fragment length)]\n", argv[0]);
+			fprintf(stderr, "USAGE: %s -get_multiscale_punctate_ERs [Option/Values]\n\
+	-chip [ChIP reads directory]\n\
+	-control [control reads directory]\n\
+	-mapp [multi-mapability profiles directory]\n\
+	-begin_l [First scale smoothing window length (1000)]\n\
+	-end_l [Last scale smoothing window length (16000)]\n\
+	-step [Multiplicative window length step (1.5)]\n\
+	-l_mapp [Read length of multi-mapability profiles]\n\
+	-mapp_thr [Multi-mapability signal threshold used in correction (1.2)]\n\
+	-l_frag [Fragment length (200)]\n\
+	-l_c [Mapability correction window length (2000)]\n\
+	-gamma [Min threshold for unsmoothed/smoothed (4)]\n\
+	-q_val [Maximum q-value for the reported ERs", argv[0]);
 			exit(0);
 		}
 
-		char* chip_reads_dir = argv[2];
-		char* control_reads_dir = argv[3];
-		int l_fragment = atoi(argv[4]);
+		double base_scale_l_win = 100;
+		double end_scale_l_win = 1600; 
+		double log_step = 1.5;
+		int l_p_val_norm_win = 1750;
+		int l_mapability_filtering_win = 50;
+		double max_normalized_mapability_signal = 1.2;
+		double filtered_vs_non_filtered_max_scaler = 4;
+		double signal_profile_scaler = 1;
+		int l_fragment = 200;
 
+		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
+		bool ret = false;
+		char* chip_reads_dir = cli->get_value_by_option("-chip", ret);
+		if(!ret)
+		{
+			fprintf(stderr, "Need chip.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* control_reads_dir = cli->get_value_by_option("-control", ret);
+		if(!ret)
+		{
+			fprintf(stderr, "Need control.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* mapability_signal_dir = cli->get_value_by_option("-mapp", ret);
+		if(!ret)
+		{
+			mapability_signal_dir = NULL;
+		}
+
+		ret = false;
+		char* l_read_mapability_signal_str = cli->get_value_by_option("-l_mapp", ret);
+		int l_read_mapability_signal = 0;
+		if(ret)
+		{
+			l_read_mapability_signal = atoi(l_read_mapability_signal_str);
+		}
+		else if(mapability_signal_dir != NULL)
+		{
+			fprintf(stderr, "Could not read the mapability read length.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* l_frag_str = cli->get_value_by_option("-l_frag", ret);
+		if(ret)
+		{
+			l_fragment = atoi(l_frag_str);
+		}
+
+		ret = false;
+		char* base_scale_l_win_str = cli->get_value_by_option("-begin_l", ret);
+		if(ret)
+		{
+			base_scale_l_win = atof(base_scale_l_win_str);
+		}
+
+		ret = false;
+		char* end_scale_l_win_str = cli->get_value_by_option("-end_l", ret);
+		if(ret)
+		{
+			end_scale_l_win = atof(end_scale_l_win_str);
+		}
+
+		ret = false;
+		char* log_step_str = cli->get_value_by_option("-step", ret);
+		if(ret)
+		{
+			log_step = atof(log_step_str);
+		}
+
+		ret = false;
+		char* l_p_val_norm_win_str = cli->get_value_by_option("-l_p", ret);
+		if(ret)
+		{
+			l_p_val_norm_win = atoi(l_p_val_norm_win_str);
+		}
+
+		// Mapability correction window length.
+		ret = false;
+		char* l_mapability_filtering_win_str = cli->get_value_by_option("-l_c", ret);
+		if(ret)
+		{
+			l_mapability_filtering_win = atoi(l_mapability_filtering_win_str);
+		}
+
+		ret = false;
+		char* max_normalized_mapability_signal_str = cli->get_value_by_option("-mapp_thr", ret);
+		if(ret)
+		{
+			max_normalized_mapability_signal = atof(max_normalized_mapability_signal_str);
+		}
+
+		ret = false;
+		char* filtered_vs_non_filtered_max_scaler_str = cli->get_value_by_option("-gamma", ret);
+		if(ret)
+		{
+			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
+		}
+
+		ret = false;
+		char* q_val_str = cli->get_value_by_option("-q_val", ret);
+		double q_val_threshold = 0.05;
+		if(ret)
+		{
+			q_val_threshold = atof(q_val_str);
+		}
+
+		get_peaks(chip_reads_dir,
+			control_reads_dir,
+			l_fragment,
+			mapability_signal_dir,
+			l_read_mapability_signal,
+			base_scale_l_win,
+			end_scale_l_win,
+			log_step,
+			l_p_val_norm_win,
+			l_mapability_filtering_win,
+			max_normalized_mapability_signal,
+			filtered_vs_non_filtered_max_scaler,
+			signal_profile_scaler,    // Signal profile scaler.
+			0.01,   // RD based end pruning p-value.
+			.5,	// Forward/Reverse signal evenness.
+			P_VAL_PER_WIN_MAX_SIGNAL, // p-value selection.
+			false,  // do_replace_profiles_w_smoothed_profiles
+			false,  // do_BJ_correction_on_minima
+			true,   // do_filter_minima_per_length_min_base_scale_l_win: For broad peaks, this is set to true to enforce that there are no small weird peaks.
+			false,	// do_post_peak_p_value_minimization (p-val min)
+			.5,		// The flip probability.
+			true,
+			q_val_threshold); 
+	} // -get_multiscale_punctate_ERs
+	else if(strcmp(argv[1], "-get_TF_peaks") == 0)
+	{
+		// We need at least 5 parameters.
+		if(argc < 5)
+		{
+			fprintf(stderr, "USAGE: %s -get_TF_peaks [Options/Values]\n\
+	-chip [ChIP reads directory]\n\
+	-control [control reads directory]\n\
+	-mapp [multi-mapability profiles directory]\n\
+	-begin_l [First scale smoothing window length (1000)]\n\
+	-end_l [Last scale smoothing window length (16000)]\n\
+	-step [Multiplicative window length step (1.5)]\n\
+	-l_mapp [Read length of multi-mapability profiles]\n\
+	-mapp_thr [Multi-mapability signal threshold used in correction (1.2)]\n\
+	-l_frag [Fragment length (200)]\n\
+	-l_c [Mapability correction window length (2000)]\n\
+	-gamma [Min threshold for unsmoothed/smoothed (4)]\n\
+	-q_val [Maximum q-value for the reported ERs", argv[0]);
+			exit(0);
+		}
+
+		double base_scale_l_win = 100;
+		double end_scale_l_win = 200; 
+		double log_step = 1.5;
+		int l_p_val_norm_win = 500;
+		int l_mapability_filtering_win = 50;
+		double max_normalized_mapability_signal = 1.2;
+		double filtered_vs_non_filtered_max_scaler = 4;
+		double signal_profile_scaler = 1;
+		int l_fragment = 200;
+
+		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
+		bool ret = false;
+		char* chip_reads_dir = cli->get_value_by_option("-chip", ret);
+		if(!ret)
+		{
+			fprintf(stderr, "Need chip.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* control_reads_dir = cli->get_value_by_option("-control", ret);
+		if(!ret)
+		{
+			fprintf(stderr, "Need control.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* mapability_signal_dir = cli->get_value_by_option("-mapp", ret);
+		if(!ret)
+		{
+			mapability_signal_dir = NULL;
+		}
+
+		ret = false;
+		char* l_read_mapability_signal_str = cli->get_value_by_option("-l_mapp", ret);
+		int l_read_mapability_signal = 0;
+		if(ret)
+		{
+			l_read_mapability_signal = atoi(l_read_mapability_signal_str);
+		}
+		else if(mapability_signal_dir != NULL)
+		{
+			fprintf(stderr, "Could not read the mapability read length.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* l_frag_str = cli->get_value_by_option("-l_frag", ret);
+		if(ret)
+		{
+			l_fragment = atoi(l_frag_str);
+		}
+
+		ret = false;
+		char* base_scale_l_win_str = cli->get_value_by_option("-begin_l", ret);
+		if(ret)
+		{
+			base_scale_l_win = atof(base_scale_l_win_str);
+		}
+
+		ret = false;
+		char* end_scale_l_win_str = cli->get_value_by_option("-end_l", ret);
+		if(ret)
+		{
+			end_scale_l_win = atof(end_scale_l_win_str);
+		}
+
+		ret = false;
+		char* log_step_str = cli->get_value_by_option("-step", ret);
+		if(ret)
+		{
+			log_step = atof(log_step_str);
+		}
+
+		ret = false;
+		char* l_p_val_norm_win_str = cli->get_value_by_option("-l_p", ret);
+		if(ret)
+		{
+			l_p_val_norm_win = atoi(l_p_val_norm_win_str);
+		}
+
+		// Mapability correction window length.
+		ret = false;
+		char* l_mapability_filtering_win_str = cli->get_value_by_option("-l_c", ret);
+		if(ret)
+		{
+			l_mapability_filtering_win = atoi(l_mapability_filtering_win_str);
+		}
+
+		ret = false;
+		char* max_normalized_mapability_signal_str = cli->get_value_by_option("-mapp_thr", ret);
+		if(ret)
+		{
+			max_normalized_mapability_signal = atof(max_normalized_mapability_signal_str);
+		}
+
+		ret = false;
+		char* filtered_vs_non_filtered_max_scaler_str = cli->get_value_by_option("-gamma", ret);
+		if(ret)
+		{
+			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
+		}
+
+		ret = false;
+		char* q_val_str = cli->get_value_by_option("-q_val", ret);
+		double q_val_threshold = 0.05;
+		if(ret)
+		{
+			q_val_threshold = atof(q_val_str);
+		}
+
+
+		get_peaks(chip_reads_dir,
+			control_reads_dir,
+			l_fragment,
+			mapability_signal_dir,
+			l_read_mapability_signal,
+			base_scale_l_win,
+			end_scale_l_win,
+			log_step,
+			l_p_val_norm_win,
+			l_mapability_filtering_win,
+			max_normalized_mapability_signal,
+			filtered_vs_non_filtered_max_scaler,
+			signal_profile_scaler,    // Signal profile scaler.
+			0.05,   // RD based end pruning p-value.
+			.5,	// Forward/Reverse signal evenness.
+			P_VAL_PER_WIN_MEAN_SIGNAL, // p-value selection.
+			false,  // do_replace_profiles_w_smoothed_profiles
+			false,  // do_BJ_correction_on_minima
+			true,   // do_filter_minima_per_length_min_base_scale_l_win: For broad peaks, this is set to true to enforce that there are no small weird peaks.
+			false,	// do_post_peak_p_value_minimization (p-val min)
+			.5,		// The flip probability.
+			false,	// Do not find troughs in the TF peaks.
+			q_val_threshold); 
+	} // -get_TF_peaks
+	else if(strcmp(argv[1], "-get_per_win_p_vals_vs_FC") == 0)
+	{
+		// This option tries to find the p-value normalization window length that has the smallest FDR in comparison with the poisson based thresholding.
+		// -analyze_p_value_normalization_window_lengths\n
+		if(argc < 3)
+		{
+			fprintf(stderr, "%s -get_per_win_p_vals_vs_FC [Options/Values]\n\
+							-chip [ChIP reads directory]\n\
+							-control [control reads directory]\n\
+							-l_frag [Fragment length (200)]\n\
+							-l_win_min [Minimum p-val window length (500)]\n\
+							-l_win_max [Maximum p-val window length (5000)]\n\
+							-l_win_step [p-val window length step (250)]\n", argv[0]);
+			exit(0);
+		}
+
+		int l_fragment = 200;
+		int l_win_start = 500;
+		int l_win_end = 5000;
+		int l_win_step = 250;
+
+		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
+		bool ret = false;
+		char* chip_reads_dir = cli->get_value_by_option("-chip", ret);
+		if(!ret)
+		{
+			fprintf(stderr, "Need chip.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* control_reads_dir = cli->get_value_by_option("-control", ret);
+		if(!ret)
+		{
+			fprintf(stderr, "Need control.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* l_frag_str = cli->get_value_by_option("-l_frag", ret);
+		if(ret)
+		{
+			l_fragment = atoi(l_frag_str);
+		}
+
+		ret = false;
+		char* l_win_start_str = cli->get_value_by_option("-l_win_min", ret);
+		if(ret)
+		{
+			l_win_start = atoi(l_win_start_str);
+		}
+
+		ret = false;
+		char* l_win_end_str = cli->get_value_by_option("-l_win_max", ret);
+		if(ret)
+		{
+			l_win_end = atoi(l_win_end_str);
+		}
+
+		ret = false;
+		char* l_win_step_str = cli->get_value_by_option("-l_win_step", ret);
+		if(ret)
+		{
+			l_win_step = atoi(l_win_step_str);
+		}
+
+		//char* chip_reads_dir = argv[2];
+		//char* control_reads_dir = argv[3];
+		//int l_fragment = atoi(argv[4]);
+		//int l_win_start = atoi(argv[5]);
+		//int l_win_end = atoi(argv[6]);
+		//int l_win_step = atoi(argv[7]);
+
+		fprintf(stderr, "Starting p-value window length selection in (%d:%d:%d) for %s, %s with fragment length %d\n", 
+			l_win_start, l_win_step, l_win_end, chip_reads_dir, control_reads_dir, l_fragment);
+
+		// For each window length, store the statistics: 
+		double* n_sig_pval_wins_per_l_win = new double[l_win_end + 2];
+		memset(n_sig_pval_wins_per_l_win, 0, sizeof(double) * (l_win_end + 2));
+		double* n_insig_pval_wins_per_l_win = new double[l_win_end + 2];
+		memset(n_insig_pval_wins_per_l_win, 0, sizeof(double) * (l_win_end + 2));
+
+		double* n_sig_FC_wins_per_l_win = new double[l_win_end + 2];
+		memset(n_sig_FC_wins_per_l_win, 0, sizeof(double) * (l_win_end + 2));
+		double* n_insig_FC_wins_per_l_win = new double[l_win_end + 2];
+		memset(n_insig_FC_wins_per_l_win, 0, sizeof(double) * (l_win_end + 2));
+
+		double* n_insig_pval_sig_FC_wins_per_l_win = new double[l_win_end + 2];
+		memset(n_insig_pval_sig_FC_wins_per_l_win, 0, sizeof(double) * (l_win_end + 2));
+		double* n_sig_pval_insig_FC_wins_per_l_win = new double[l_win_end + 2];
+		memset(n_sig_pval_insig_FC_wins_per_l_win, 0, sizeof(double) * (l_win_end + 2));
+
+		double* n_sig_pval_sig_FC_wins_per_l_win = new double[l_win_end + 2];
+		memset(n_sig_pval_sig_FC_wins_per_l_win, 0, sizeof(double) * (l_win_end + 2));
+		double* n_insig_pval_insig_FC_wins_per_l_win = new double[l_win_end + 2];
+		memset(n_insig_pval_insig_FC_wins_per_l_win, 0, sizeof(double) * (l_win_end + 2));
+
+		//double* n_insig_pval_wins_per_l_win = new double[l_win_end + 2];
+		//memset(n_insig_pval_wins_per_l_win, 0, sizeof(double) * (l_win_end + 2));
+
+		//double* n_sig_FC_wins_per_l_win = new double[l_win_end + 2];
+		//memset(n_sig_FC_wins_per_l_win, 0, sizeof(double) * (l_win_end + 2));
+
+		// Load the chromosome id's.
 		char chr_ids_fp[1000];
 		sprintf(chr_ids_fp, "%s/chr_ids.txt", chip_reads_dir);
 		vector<char*>* chr_ids = buffer_file(chr_ids_fp);
@@ -976,12 +1529,16 @@ if(__DUMP_PEAK_MESSAGES__)
 				control_profile[i] *= scaling_factor;
 			} // i loop.
 
-			for(int l_win = 500; l_win <= 10000; l_win += 250)
+			for(int l_win = l_win_start; l_win <= l_win_end; l_win += l_win_step)
 			{
 				int cur_win_start = 1;
 				while(cur_win_start < l_profile)
 				{
-					fprintf(stderr, "Processing l_win = %d (%d, %d)             \r", l_win, cur_win_start, l_profile);
+					if(cur_win_start % 10*1000*1000 == 1)
+					{
+						fprintf(stderr, "Processing l_win = %d (%d, %d)             \r", l_win, cur_win_start, l_profile);
+					}
+
 					int cur_l_win = l_win;
 					if(cur_win_start+cur_l_win > l_profile)
 					{
@@ -1025,6 +1582,7 @@ if(__DUMP_PEAK_MESSAGES__)
 					}
 
 					if(log_p_val != 0 &&
+						total_control > 0 &&
 						total_signal / (win_end-win_start) > 1)
 					{
 						fprintf(f_win_stats, "%d\t%d\t%d\t%lf\t%lf\t%lf\n", 
@@ -1034,18 +1592,461 @@ if(__DUMP_PEAK_MESSAGES__)
 							log_p_val,
 							total_signal,
 							total_control);
-					}
+
+						// Set the counters per window length.
+						if(log_p_val < xlog(0.05))
+						{
+							n_sig_pval_wins_per_l_win[win_end-win_start]++;
+
+							if(total_signal / total_control < 1.5)
+							{
+								// Insignificant FC.
+								n_insig_FC_wins_per_l_win[win_end-win_start]++;
+								n_sig_pval_insig_FC_wins_per_l_win[win_end-win_start]++;
+							}
+							else if(total_signal / total_control > 2.0)
+							{
+								// Significant FC.
+								n_sig_FC_wins_per_l_win[win_end-win_start]++;
+								n_sig_pval_sig_FC_wins_per_l_win[win_end-win_start]++;
+							}
+						}
+						else
+						{
+							n_insig_pval_wins_per_l_win[win_end-win_start]++;
+
+							if(total_signal / total_control < 1.5)
+							{
+								// Insignificant FC.
+								n_insig_FC_wins_per_l_win[win_end-win_start]++;
+								n_insig_pval_insig_FC_wins_per_l_win[win_end-win_start]++;
+							}
+							else if(total_signal / total_control > 2.0)
+							{
+								// Significant FC.
+								n_sig_FC_wins_per_l_win[win_end-win_start]++;
+								n_insig_pval_sig_FC_wins_per_l_win[win_end-win_start]++;
+							}
+						} // p-value check.
+					} // window signal check.
 
 					// Update the thresholding window start.
 					cur_win_start += l_win;
 				} // cur_win_start loop.
-			} // cur_l_win loop.	
+			} // cur_l_win loop.
 
 			delete [] signal_profile;
 			delete [] control_profile;
 		} // i_chr loop.
 		fclose(f_win_stats);
-	} // -get_per_win_p_vals_FC option.
+
+		// Dump the FC stats: We are assuming that FC is a gold standard and assume p-val computations are prediction.
+		fprintf(stderr, "Dumping the per l_win accuracy stats.\n");
+		FILE* f_per_win_accuracy_stats = open_f("per_l_win_accuracy_stats.txt", "w");
+		for(int l_win = l_win_start; l_win <= l_win_end; l_win += l_win_step)
+		{
+			fprintf(f_per_win_accuracy_stats, "l_win: %d\tFNR: (FC:%.3f) (p-val:%.3f)\tFPR: (FC:%.3f) (p-val:%.3f)\tSentitivity: %.3f\n", l_win,
+				n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win],
+				n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_insig_pval_wins_per_l_win[l_win],
+				n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_insig_FC_wins_per_l_win[l_win],
+				n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_sig_pval_wins_per_l_win[l_win],
+				n_sig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win]);
+
+			fprintf(stderr, "l_win: %d\tFNR: (FC:%.3f) (p-val:%.3f)\tFPR: (FC:%.3f) (p-val:%.3f)\tSentitivity: %.3f\n", l_win,
+				n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win],
+				n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_insig_pval_wins_per_l_win[l_win],
+				n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_insig_FC_wins_per_l_win[l_win],
+				n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_sig_pval_wins_per_l_win[l_win],
+				n_sig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win]);
+		} // l_win loop.
+		fclose(f_per_win_accuracy_stats);
+	} // -get_per_win_p_vals_vs_FC option.
+	else if(strcmp(argv[1], "-get_scale_spectrum") == 0)
+	{
+		if(argc < 3)
+		{
+			fprintf(stderr, "USAGE: %s -get_scale_spectrum [Options/Values]\n\
+							-chip [ChIP reads directory]\n\
+							-control [control reads directory]\n\
+							-mapp [multi-mapability profiles directory]\n\
+							-begin_l [First scale smoothing window length (1000)]\n\
+							-end_l [Last scale smoothing window length (16000)]\n\
+							-step [Multiplicative window length step (1.5)]\n\
+							-l_mapp [Read length of multi-mapability profiles]\n\
+							-mapp_thr [Multi-mapability signal threshold used in correction (1.2)]\n\
+							-l_frag [Fragment length (200)]\n\
+							-l_c [Mapability correction window length (2000)]\n\
+							-gamma [Min threshold for unsmoothed/smoothed (4)]\n", argv[0]);
+			exit(0);
+		}
+
+		double base_scale_l_win = 100;
+		double end_scale_l_win = 1000000; 
+		double log_step = 1.5;
+		int l_p_val_norm_win = 1750;
+		int l_mapability_filtering_win = 2000;
+		double max_normalized_mapability_signal = 1.2;
+		double filtered_vs_non_filtered_max_scaler = 4;
+		double signal_profile_scaler = 1;
+		int l_fragment = 200;
+
+		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
+		bool ret = false;
+		char* chip_reads_dir = cli->get_value_by_option("-chip", ret);
+		if(!ret)
+		{
+			fprintf(stderr, "Need chip.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* control_reads_dir = cli->get_value_by_option("-control", ret);
+		if(!ret)
+		{
+			fprintf(stderr, "Need control.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* mapability_signal_dir = cli->get_value_by_option("-mapp", ret);
+		if(!ret)
+		{
+			mapability_signal_dir = NULL;
+		}
+
+		ret = false;
+		char* l_read_mapability_signal_str = cli->get_value_by_option("-l_mapp", ret);
+		int l_read_mapability_signal = 0;
+		if(ret)
+		{
+			l_read_mapability_signal = atoi(l_read_mapability_signal_str);
+		}
+		else if(mapability_signal_dir != NULL)
+		{
+			fprintf(stderr, "Could not read the mapability read length.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* l_frag_str = cli->get_value_by_option("-l_frag", ret);
+		if(ret)
+		{
+			l_fragment = atoi(l_frag_str);
+		}
+
+		//ret = false;
+		//char* base_scale_l_win_str = cli->get_value_by_option("-begin_l", ret);
+		//if(ret)
+		//{
+		//	base_scale_l_win = atof(base_scale_l_win_str);
+		//}
+
+		//ret = false;
+		//char* end_scale_l_win_str = cli->get_value_by_option("-end_l", ret);
+		//if(ret)
+		//{
+		//	end_scale_l_win = atof(end_scale_l_win_str);
+		//}
+
+		//ret = false;
+		//char* log_step_str = cli->get_value_by_option("-step", ret);
+		//if(ret)
+		//{
+		//	log_step = atof(log_step_str);
+		//}
+
+		ret = false;
+		char* l_p_val_norm_win_str = cli->get_value_by_option("-l_p", ret);
+		if(ret)
+		{
+			l_p_val_norm_win = atoi(l_p_val_norm_win_str);
+		}
+
+		// Mapability correction window length.
+		ret = false;
+		char* l_mapability_filtering_win_str = cli->get_value_by_option("-l_c", ret);
+		if(ret)
+		{
+			l_mapability_filtering_win = atoi(l_mapability_filtering_win_str);
+		}
+
+		ret = false;
+		char* max_normalized_mapability_signal_str = cli->get_value_by_option("-mapp_thr", ret);
+		if(ret)
+		{
+			max_normalized_mapability_signal = atof(max_normalized_mapability_signal_str);
+		}
+
+		ret = false;
+		char* filtered_vs_non_filtered_max_scaler_str = cli->get_value_by_option("-gamma", ret);
+		if(ret)
+		{
+			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
+		}
+
+		get_peaks(chip_reads_dir,
+			control_reads_dir,
+			l_fragment,
+			mapability_signal_dir,
+			l_read_mapability_signal,
+			base_scale_l_win,
+			end_scale_l_win,
+			log_step,
+			l_p_val_norm_win,
+			l_mapability_filtering_win,
+			max_normalized_mapability_signal,
+			filtered_vs_non_filtered_max_scaler,
+			signal_profile_scaler,    // Signal profile scaler.
+			0.05,   // RD based end pruning p-value.
+			.5,	// Forward/Reverse signal evenness.
+			P_VAL_PER_WIN_MEAN_SIGNAL, // p-value selection.
+			false,  // do_replace_profiles_w_smoothed_profiles
+			false,  // do_BJ_correction_on_minima
+			true,   // do_filter_minima_per_length_min_base_scale_l_win: For broad peaks, this is set to true to enforce that there are no small weird peaks.
+			false,	// do_post_peak_p_value_minimization (p-val min)
+			.5,		// The flip probability.
+			false,
+			0.05); 
+
+		// Load the SSERs and process.
+		char chr_ids_fp[1000];
+		sprintf(chr_ids_fp, "%s/chr_ids.txt", chip_reads_dir);
+
+		vector<char*>* chr_ids = buffer_file(chr_ids_fp);
+		if(chr_ids == NULL)
+		{
+			fprintf(stderr, "Could not load the file.\n");
+			exit(0);
+		}
+
+		double* log_factorials = buffer_log_factorials(1000*1000);		
+
+		vector<t_annot_region*>* covering_peaks = new vector<t_annot_region*>();
+		int n_scales = 0;
+		for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
+		{
+			fprintf(stderr, "Processing %s\n", chr_ids->at(i_chr));
+
+			// Generate the current signal profile.
+			int l_buffer = 300*1000*1000;
+			int l_track_data = 0;
+			double* buffered_signal_profile = new double[l_buffer + 2];	
+			char cur_chr_chip_reads_fp[1000];
+			sprintf(cur_chr_chip_reads_fp, "%s/%s_mapped_reads.txt", chip_reads_dir, chr_ids->at(i_chr));
+			buffer_per_nucleotide_profile_no_buffer(cur_chr_chip_reads_fp, 200, 
+				buffered_signal_profile, NULL, NULL,
+				l_buffer, l_track_data);
+
+			//double* signal_profile = new double[l_profile + 2];	
+			double* track_data = new double[l_track_data + 2];
+			for(int i = 1; i <= l_track_data; i++)
+			{
+				track_data[i] = buffered_signal_profile[i];
+			} // i loop.
+			delete [] buffered_signal_profile;
+
+			// Generate the current control profile.
+			l_buffer = 300*1000*1000;
+			int l_control_data = 0;
+			double* buffered_control_profile = new double[l_buffer + 2];
+			char cur_chr_control_reads_fp[1000];
+			sprintf(cur_chr_control_reads_fp, "%s/%s_mapped_reads.txt", control_reads_dir, chr_ids->at(i_chr));
+			buffer_per_nucleotide_profile_no_buffer(cur_chr_control_reads_fp, 200, 
+				buffered_control_profile, NULL, NULL, 
+				l_buffer, l_control_data);
+
+			double* control_data = new double[l_control_data + 2];
+			for(int i = 1; i <= l_control_data; i++)
+			{
+				control_data[i] = buffered_control_profile[i];
+			} // i loop.
+			delete [] buffered_control_profile;
+
+			// Scale the control with respect to signal.
+			double per_win_2DOF_lls_scaling_factor = 0;
+			double per_win_1DOF_lls_scaling_factor = 0;
+			double total_sig_scaling_factor = 0;
+			get_per_window_scaling_factors_for_profile1_per_profile2(control_data, l_control_data, track_data, l_track_data, 10000,
+																		per_win_2DOF_lls_scaling_factor,
+																		per_win_1DOF_lls_scaling_factor,
+																		total_sig_scaling_factor);
+
+			double scaling_factor = per_win_1DOF_lls_scaling_factor;
+			fprintf(stderr, "Scaling control with factor of %lf\n", scaling_factor);
+
+			// Go over the whole control signal.
+			for(int i = 0; i < l_control_data; i++)
+			{
+				control_data[i] *= scaling_factor;
+			} // i loop.
+		
+			//int max_n_scales = 50;
+			int cur_chr_n_scales = 0;
+			vector<t_annot_region*>* pooled_peaks = new vector<t_annot_region*>();
+			//for(int i_scale = 0; i_scale < max_n_scales; i_scale++)
+			int i_scale = 0;
+			double cur_l_scale = 1;
+			while(1)
+			{
+				if(cur_l_scale < base_scale_l_win)
+				{
+					i_scale++;
+					cur_l_scale *= log_step;
+					continue;
+				}
+				
+				if(cur_l_scale > end_scale_l_win)
+				{
+					break;
+				}
+
+				fprintf(stderr, "Pooling the peaks at scale %.2f.\n", cur_l_scale);
+
+				// filtered_minima_3_scale_28.bed
+				char cur_peak_regs_bed_fp[1000];
+				//sprintf(cur_peak_regs_bed_fp, "filtered_minima_%s_scale_%d.bed", chr_ids->at(i_chr), i_scale);
+				sprintf(cur_peak_regs_bed_fp, "SSERs_%s_scale_%d.bed", chr_ids->at(i_chr), (int)cur_l_scale);
+				if(!check_file(cur_peak_regs_bed_fp))
+				{
+					continue;
+				}
+
+				vector<t_annot_region*>* cur_scale_regions = load_BED(cur_peak_regs_bed_fp);
+				fprintf(stderr, "Loaded %d peaks.\n", (int)cur_scale_regions->size());
+				if(cur_scale_regions->size() == 0)
+				{
+					//fprintf(stderr, "Breaking at scale %.2f\n", cur_l_scale);
+					//break;
+				}
+				else
+				{
+					// If there were peaks at this scale, set this the maximum number of scales.
+					cur_chr_n_scales = i_scale+1;
+				}
+
+				// Pool the peaks.
+				pooled_peaks->insert(pooled_peaks->end(), cur_scale_regions->begin(), cur_scale_regions->end());
+
+				i_scale++;
+				cur_l_scale *= log_step;
+			} // i_scale loop.
+
+			// Set the # of scales.
+			if(n_scales < cur_chr_n_scales)
+			{
+				n_scales = cur_chr_n_scales;
+			}
+
+			// Merge the peaks.
+			vector<t_annot_region*>* covering_peaks_per_cur_chr = merge_annot_regions(pooled_peaks, 1);
+			delete_annot_regions(pooled_peaks);
+			fprintf(stderr, "Merged the pooled peaks to %d covering peaks.\n", (int)(covering_peaks_per_cur_chr->size()));
+			for(int i_p = 0; i_p < (int)covering_peaks_per_cur_chr->size(); i_p++)
+			{
+				// Fix the chromosome id's.
+				delete [] covering_peaks_per_cur_chr->at(i_p)->chrom;
+				covering_peaks_per_cur_chr->at(i_p)->chrom = t_string::copy_me_str(chr_ids->at(i_chr));
+
+				covering_peaks_per_cur_chr->at(i_p)->significance_info = new t_significance_info();
+			} // i_p loop.
+
+			// Go over all the scales and assign the scales to all the peaks
+			cur_l_scale = 1;
+			for(int i_scale = 0; i_scale < cur_chr_n_scales; i_scale++)
+			{
+				fprintf(stderr, "Assigning peaks at scale %.2f.\n", cur_l_scale);
+
+				// filtered_minima_3_scale_28.bed
+				char cur_peak_regs_bed_fp[1000];
+				//sprintf(cur_peak_regs_bed_fp, "filtered_minima_%s_scale_%d.bed", chr_ids->at(i_chr), i_scale);
+				sprintf(cur_peak_regs_bed_fp, "SSERs_%s_scale_%d.bed", chr_ids->at(i_chr), (int)cur_l_scale);
+				if(!check_file(cur_peak_regs_bed_fp))
+				{
+					continue;
+				}
+
+				vector<t_annot_region*>* cur_scale_regions = load_BED(cur_peak_regs_bed_fp);
+				fprintf(stderr, "Loaded %d peaks.\n", (int)(cur_scale_regions->size()));
+				if(cur_scale_regions->size() == 0)
+				{
+					//fprintf(stderr, "Breaking at scale %d\n", i_scale);
+					//break;
+				}
+
+				// Fix the chromosome id's.
+				for(int i_p = 0; i_p < (int)cur_scale_regions->size(); i_p++)
+				{
+					// Fix the chromosome id's.
+					delete [] cur_scale_regions->at(i_p)->chrom;
+					cur_scale_regions->at(i_p)->chrom = t_string::copy_me_str(chr_ids->at(i_chr));
+				} // i_p loop.
+
+				// Intersect.
+				vector<t_annot_region*>* int_regions = intersect_annot_regions(covering_peaks_per_cur_chr, cur_scale_regions, true);
+				for(int i_int = 0; i_int < (int)int_regions->size(); i_int++)
+				{
+					t_intersect_info* cur_intersect_info = (t_intersect_info*)(int_regions->at(i_int)->data);
+					t_annot_region* covering_peak = cur_intersect_info->src_reg;					
+
+					double cur_p_val = get_binomial_pvalue_per_region(track_data, control_data, 
+							cur_intersect_info->dest_reg->start, cur_intersect_info->dest_reg->end, log_factorials, 200, true, l_p_val_norm_win);
+
+					covering_peak->significance_info->log_p_val = cur_p_val;
+					covering_peak->score = i_scale;
+
+					delete cur_intersect_info;
+				} // i_int loop.
+
+				delete_annot_regions(int_regions);
+				delete_annot_regions(cur_scale_regions);
+			} // i_scale loop.
+
+			covering_peaks->insert(covering_peaks->end(), covering_peaks_per_cur_chr->begin(), covering_peaks_per_cur_chr->end());
+
+			// Assign scale to each of the covering peaks, compute p-values.
+			delete [] track_data;
+			delete [] control_data;
+		} // i_chr loop.
+
+		fprintf(stderr, "Processing %d covering peaks over %d scales.\n", (int)(covering_peaks->size()), n_scales);
+
+		// At this point, get the mean and std dev for the p-value distributions at each scale.
+		FILE* f_per_scale_stats = open_f("per_scale_stats.txt", "w");
+		double* cur_scale_p_val_values = new double[100*1000*1000];
+		for(int i_scale = 0; i_scale < n_scales; i_scale++)
+		{
+			vector<t_annot_region*>* cur_scale_peaks = new vector<t_annot_region*>();
+
+			int n_cur_scale_peaks = 0;
+			int n_cur_scale_nucs = 0;
+			fprintf(stderr, "Computing per scale stats for scale %d\n", i_scale);
+			for(int i_p = 0; i_p < (int)covering_peaks->size(); i_p++)
+			{
+				if(covering_peaks->at(i_p)->score == (unsigned int)i_scale)
+				{
+					cur_scale_p_val_values[n_cur_scale_peaks] = covering_peaks->at(i_p)->significance_info->log_p_val;
+					cur_scale_peaks->push_back(covering_peaks->at(i_p));
+					n_cur_scale_peaks++;
+
+					n_cur_scale_nucs += (covering_peaks->at(i_p)->end - covering_peaks->at(i_p)->start + 1);
+				}
+			} // i loop.
+
+			// Get the stats.
+			if(n_cur_scale_peaks > 0)
+			{
+				fprintf(f_per_scale_stats, "%d\t%d\t%d\n", i_scale, n_cur_scale_peaks, n_cur_scale_nucs);
+
+				char cur_scale_peaks_fp[1000];
+				sprintf(cur_scale_peaks_fp, "scale_%d_only_peaks.bed", i_scale);
+				dump_BED(cur_scale_peaks_fp, cur_scale_peaks);
+			}
+
+			delete cur_scale_peaks;
+		} // i_scale loop.
+
+		fclose(f_per_scale_stats);
+	} // -get_scale_spectrum option.
 	else if(strcmp(argv[1], "-preprocess_FASTA") == 0)
 	{
 		if(argc != 4)
@@ -1260,18 +2261,10 @@ if(__DUMP_PEAK_MESSAGES__)
 		delete [] signal_profile_buffer;
 		delete [] char_signal_buffer;
 	} // -get_multimapability_signal_per_mapped_reads
-
-	/*
-Cross-correlation/Fragment length estimation:\n\
-	-estimate_fragment_length [Reads directory] [Minimum separation] [Maximum separation]\n\
-	-estimate_fragment_length_per_mapability [Reads directory] [Multi-mapability signal directory] [Minimum separation] [Maximum separation] [Mapability read length]\n\
-	-cross_correlation [Reads directory] [Minimum separation] [Maximum separation]\n\
-Signal generation:\n\
-	-write_BedGraph_per_preprocessed_reads [Reads directory] [Fragment length]\n\
-Multi-Mapability Signal Generation:\n\
-	-preprocess_FASTA [FASTA file path] [Output firectory]\n\
-	-fragment_sequence_2_stdout [Binarized sequence file path] [Fragment length]\n\
-	-get_multimapability_signal_per_mapped_reads [Mapped reads file path (stdin)] [Output file path]\n
-	*/
+	else
+	{
+		fprintf(stderr, "Unknown option.\n");
+		exit(0);
+	}
 }
 

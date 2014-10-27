@@ -25,7 +25,6 @@ class t_string;
 
 char* resolve_data_dir();
 bool check_file(char* fp);
-void validate_file(char* fp);
 char* x_fgets(char* buff, int size, FILE* file);
 FILE* open_f(const char* fp, const char* mode);
 vector<char*>* load_directory_files(char* root_dir, char* extension);
@@ -42,7 +41,6 @@ int get_next_string(FILE* file, char* buff, int buff_size);
 // Loads a line from a file, without the buffer size. In principle, reads line of any length and buffers it.
 char* getline(FILE* file);
 bool get_next_token_per_file_till_newline(FILE* file, char* buffer, int l_buffer, char* delim_char, bool& new_line_check, bool& eof_check);
-char* getline_per_file_buffer(t_file_buffer* file_buffer);
 
 bool get_next_char_per_file_buffer(t_file_buffer* file_buffer, char& char_val);
 

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "ms_nomenclature.h"
 #include "ms_ansi_string.h"
+#include <string.h>
 
 void normalize_chr_id(char* raw_chr_id)
 {
@@ -11,8 +12,8 @@ void normalize_chr_id(char* raw_chr_id)
 	{
 		// Get rid of the first 3 characters.
 		char temp[1000];
-		t_string::copy(temp, &raw_chr_id[3]);
-		t_string::copy(raw_chr_id, temp);
+		strcpy(temp, &raw_chr_id[3]);
+		strcpy(raw_chr_id, temp);
 	}
 	else
 	{

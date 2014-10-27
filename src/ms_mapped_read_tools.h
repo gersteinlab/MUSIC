@@ -24,23 +24,23 @@ struct t_mapping_info
 	char* mapping_quality_str; // CIGAR string.
 };
 
-//// This is a sequenced tag w/o any mapping information: Does not have any information about mapping, initially. In case there is
-//// mapping information, it is stored under the member named mapping_info.
-//struct t_sequenced_read
-//{
-//	char* id;
-//	t_mapping_info* mapping_info;
-//	char* quality_str;
-//	char* nucs;
-//};
+// This is a sequenced tag w/o any mapping information: Does not have any information about mapping, initially. In case there is
+// mapping information, it is stored under the member named mapping_info.
+struct t_sequenced_read
+{
+	char* id;
+	t_mapping_info* mapping_info;
+	char* quality_str;
+	char* nucs;
+};
 
-//// This is a mapped fragment: It can be a part of a read.
-//struct t_mapped_fragment
-//{
-//	int base_index;
-//	int sequenced_fragment_length; // Necessary when building enrichment profile. This is the fragment length coming from ChIP-Seq data.
-//	char strand_char;
-//};
+// This is a mapped fragment: It can be a part of a read.
+struct t_mapped_fragment
+{
+	int base_index;
+	int sequenced_fragment_length; // Necessary when building enrichment profile. This is the fragment length coming from ChIP-Seq data.
+	char strand_char;
+};
 
 struct t_mapped_read
 {
@@ -79,32 +79,102 @@ struct t_read_line_w_id
 	char* read_line;
 };
 
+bool sort_read_line_entries_per_id(t_read_line_w_id* read1, t_read_line_w_id* read2);
+vector<char*>* sort_read_lines_per_id(vector<char*>* cur_chr_read_lines);
+void sort_read_lines_per_id_in_place(vector<char*>* cur_chr_read_lines);
+
+// Following represents one connection.
+struct t_connection_info_entry
+{
+	t_annot_region* connecting_region;
+	vector<char*>* read_ids;
+
+	// Strands for the read.
+	vector<char>* first_read_strands;
+	vector<char>* last_read_strands;
+
+	// Starts and ends of the read starts.
+	vector<int>* first_read_starts;
+	vector<int>* first_read_i_chrs;
+	vector<int>* last_read_starts;
+	vector<int>* last_read_i_chrs;
+};
+
+struct t_per_bin_connection_info
+{
+	double avg_mappability;
+	double avg_read_mappability;
+	vector<t_connection_info_entry*>* connecting_bins;
+};
+
+void get_insert_stats_per_concordant_PE_reads(char* sorted_pe_reads_fp, 
+	int l_read,
+	int max_concordant_mapping_separation, 
+	char valid_first_mapper_strand,
+	char valid_last_mapper_strand);
+
+void label_merge_external_sort_PE_reads_per_id(char* first_mapped_reads_dir,
+	char* last_mapped_reads_dir,
+	char* temp_sorted_op_dir,
+	char* sorted_op_fp);
+
+void label_PE_reads_file(char* reads_fp, char side_char, char* chr_id, char* op_fp);
+
+void sort_PE_reads_file_per_id_in_memory(char* mapped_reads_fp,
+	char* sorted_op_fp);
+
+void external_sort_PE_reads_per_file_list(char* read_fps, char* sorted_op_fp);
+
+void label_merge_external_sort_SE_reads_per_id(char* mapped_reads_dir,
+	char* temp_sorted_op_dir,
+	char* sorted_op_fp);
+
+//void generate_discordant_PE_read_connections_per_sorted_PE_reads_file(char* chr_ids_fp, char* sorted_pe_reads_fp, int l_bin, int min_l_same_chr_separation, int max_concordant_mapping_separation,
+//	char valid_first_mapper_strand,
+//	char valid_last_mapper_strand);
+
+void generate_discordant_PE_read_connections_per_sorted_PE_reads_file(char* chr_ids_lengths_fp, char* sorted_pe_reads_fp, 
+	char* mapability_dir,
+	int l_bin, 
+	int l_step,
+	int min_l_same_chr_separation, 
+	int max_concordant_mapping_separation,
+	char valid_first_mapper_strand,
+	char valid_last_mapper_strand);
+
+void generate_discordant_read_connections_per_id_sorted_SE_mapped_reads_file(char* chr_ids_fp, char* sorted_se_mapped_reads_fp, 
+	int l_bin, int min_l_same_chr_separation, int max_concordant_mapping_separation,
+	char valid_first_mapper_strand,
+	char valid_last_mapper_strand);
+
+void get_differential_discordant_PE_pair_connections(char* sample_fp, char* control_fp, char* op_fp);
+
 bool check_genome_index_update_per_CIGAR_entry(char entry_char);
 bool check_read_nuc_index_update_per_CIGAR_entry(char entry_char);
 
-//// Load sequenced reads directly from the fastq file.
-//// Loads and pools the reads.
-//void load_sequenced_reads_per_fastq(char* fastq_fp, vector<t_sequenced_read*>* sequenced_reads);
-//void load_sequenced_reads_per_SAM(char* sam_fp, vector<t_sequenced_read*>* sequenced_reads);
-//void dump_phred_quality_distribution(vector<t_sequenced_read*>* sequenced_reads, char* op_fp);
-//
-//// Subsample the reads to a desired size.
-//void subsample_sequenced_reads(vector<t_sequenced_read*>* sequenced_reads, 
-//	vector<t_sequenced_read*>* subsampled_sequenced_reads, 
-//	int n_subsample_size);
-//
-//void subsample_mapped_reads(vector<t_mapped_read*>* mapped_reads, 
-//	vector<t_mapped_read*>* subsampled_mapped_reads, 
-//	int n_subsample_size);
-//
-//void dump_fastq(vector<t_sequenced_read*>* sequenced_reads, char* op_fastq_fp);
-//void delete_sequenced_reads(vector<t_sequenced_read*>* sequenced_reads);
-//
-//// Load the mapped read files and preprocess them, from which the sequenced fragments can be loaded.
-//void load_mapped_sequenced_reads_per_SAM(char* sam_fp, vector<t_sequenced_read*>* sequenced_reads);
-//void load_mapped_sequenced_reads_per_ELAND(char* eland_fp, vector<t_sequenced_read*>* sequenced_reads);
-//void load_mapped_sequenced_reads_per_tagAlign(char* tagalign_fp, vector<t_sequenced_read*>* sequenced_reads);
-//void load_mapped_sequenced_reads_per_bowtie(char* bowtie_fp, vector<t_sequenced_read*>* sequenced_reads);
+// Load sequenced reads directly from the fastq file.
+// Loads and pools the reads.
+void load_sequenced_reads_per_fastq(char* fastq_fp, vector<t_sequenced_read*>* sequenced_reads);
+void load_sequenced_reads_per_SAM(char* sam_fp, vector<t_sequenced_read*>* sequenced_reads);
+void dump_phred_quality_distribution(vector<t_sequenced_read*>* sequenced_reads, char* op_fp);
+
+// Subsample the reads to a desired size.
+void subsample_sequenced_reads(vector<t_sequenced_read*>* sequenced_reads, 
+	vector<t_sequenced_read*>* subsampled_sequenced_reads, 
+	int n_subsample_size);
+
+void subsample_mapped_reads(vector<t_mapped_read*>* mapped_reads, 
+	vector<t_mapped_read*>* subsampled_mapped_reads, 
+	int n_subsample_size);
+
+void dump_fastq(vector<t_sequenced_read*>* sequenced_reads, char* op_fastq_fp);
+void delete_sequenced_reads(vector<t_sequenced_read*>* sequenced_reads);
+
+// Load the mapped read files and preprocess them, from which the sequenced fragments can be loaded.
+void load_mapped_sequenced_reads_per_SAM(char* sam_fp, vector<t_sequenced_read*>* sequenced_reads);
+void load_mapped_sequenced_reads_per_ELAND(char* eland_fp, vector<t_sequenced_read*>* sequenced_reads);
+void load_mapped_sequenced_reads_per_tagAlign(char* tagalign_fp, vector<t_sequenced_read*>* sequenced_reads);
+void load_mapped_sequenced_reads_per_bowtie(char* bowtie_fp, vector<t_sequenced_read*>* sequenced_reads);
 
 void count_mapped_reads_per_file(char* mrf_fp, void (preprocess_mapped_read_line)(char* cur_line, 
 	char* read_id,
@@ -115,7 +185,8 @@ void count_mapped_reads_per_file(char* mrf_fp, void (preprocess_mapped_read_line
 	double n_total_reads);
 
 // Following are the preprocessing functions for preprocessing the mapped reads file 
-void preprocess_mapped_PE_SAM_file(char* pe_sam_fp, 
+void preprocess_mapped_PE_SAM_file(char* pe_sam_fp,
+	int min_mapping_qual, 
 	char* first_reads_dir, char* last_reads_dir);
 
 void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void (preprocess_mapped_read_line)(char* cur_line, 
@@ -130,43 +201,43 @@ void preprocess_tagAlign_read_line(char* cur_line,
 	char* chrom, 
 	int& chr_index, int& sequenced_length, 
 	char& strand_char, 
-	char* mapping_quality_str);
+	char* cigar_str);
 void preprocess_SAM_read_line(char* cur_line, 
 	char* read_id,
 	char* chrom, 
 	int& chr_index, int& sequenced_length, 
 	char& strand_char, 
-	char* mapping_quality_str);
+	char* cigar_str);
 void preprocess_ELAND_read_line(char* cur_line, 
 	char* read_id,
 	char* chrom, 
 	int& chr_index, int& sequenced_length, 
 	char& strand_char, 
-	char* mapping_quality_str);
+	char* cigar_str);
 void preprocess_bowtie_read_line(char* cur_line, 
 	char* read_id,
 	char* chrom, 
 	int& chr_index, int& sequenced_length, 
 	char& strand_char, 
-	char* mapping_quality_str);
+	char* cigar_str);
 void preprocess_preprocessed_LH_GFF3_read_line(char* cur_line, 
 	char* read_id,
 	char* chrom, 
 	int& chr_index, int& sequenced_length, 
 	char& strand_char, 
-	char* mapping_quality_str);
+	char* cigar_str);
 void preprocess_BED4_read_line(char* cur_line, 
 	char* read_id,
 	char* chrom, 
 	int& chr_index, int& sequenced_length, 
 	char& strand_char, 
-	char* mapping_quality_str);
+	char* cigar_str);
 void preprocess_BED5_read_line(char* cur_line, 
 	char* read_id,
 	char* chrom, 
 	int& chr_index, int& sequenced_length, 
 	char& strand_char, 
-	char* mapping_quality_str);
+	char* cigar_str);
 
 void preprocess_PE_SAM_read_line(char* cur_line, 
 	char* read_id,
@@ -175,7 +246,8 @@ void preprocess_PE_SAM_read_line(char* cur_line,
 	bool& last_segment_in_template,
 	int& chr_index, int& sequenced_length, 
 	char& strand_char, 
-	char* mapping_quality_str);
+	int& mapping_quality,
+	char* cigar_str);
 
 int get_l_signal_per_reads(char* reads_fp, int l_ext_tag);
 
@@ -280,6 +352,12 @@ void delete_fragments(t_mapped_fragment** fragment_list);
 bool check_fragment_quality(char* fragment, char* chr_subseq, char* quality_str);
 bool sort_mapped_fragments(t_mapped_fragment* frag1, t_mapped_fragment* frag2);
 bool sort_mapped_fragments_per_3p(t_mapped_fragment* frag1, t_mapped_fragment* frag2);
+
+void preprocessed_read_file_iterator(char* mapped_reads_fp, 
+	void (per_read_callback)(char*, char, int, void*), 
+	void (per_fragment_callback)(char*, char, int, void*),
+	void* per_read_callback_param,
+	void* per_fragment_callback_param);
 
 // Prune fragments/reads
 void prune_reads(vector<t_mapped_read*>* mapped_reads, int n_max_reps_per_posn, 

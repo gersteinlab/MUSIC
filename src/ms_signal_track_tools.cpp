@@ -11,6 +11,43 @@
 
 bool __DUMP_SIGNAL_TRACK_MSGS__ = false;
 
+void dump_per_nucleotide_uchar_binary_profile(unsigned char* signal_profile, int l_profile, char* op_fp)
+{
+	// Dump the per nucleotide signal profile.
+	FILE* f_op = open_f(op_fp, "wb");
+
+	// Write data length to first couple bytes.
+	fwrite(&(l_profile), sizeof(int), 1, f_op);
+
+	// Dump the data: Dump 0 based data.
+	fwrite(&(signal_profile[1]), sizeof(unsigned char), l_profile+1, f_op);
+
+	fclose(f_op);
+}
+
+unsigned char* load_per_nucleotide_binary_uchar_profile(char* binary_per_nucleotide_profile_fp, int& l_profile)
+{
+	FILE* f_prof = open_f(binary_per_nucleotide_profile_fp, "rb");
+
+	// Read the profile length.
+	int l_data = 0;
+	fread(&l_data, sizeof(int), 1, f_prof);
+	l_profile = l_data;
+
+	// Read the data.
+	unsigned char* signal_profile_buffer = new unsigned char[l_profile+2];
+
+if(__DUMP_SIGNAL_TRACK_MSGS__)
+	fprintf(stderr, "Loading %d data values.\n", l_profile);
+
+	// Following is to use the codebase indexing: 1 based indexing.
+	fread(&(signal_profile_buffer[1]), sizeof(char), l_profile+1, f_prof);
+	
+	fclose(f_prof);
+
+	return(signal_profile_buffer);
+}
+
 void get_profile_extrema(double* profile, int l_profile, double& prof_min, double& prof_max)
 {
 	prof_min = 1000*1000;
@@ -49,6 +86,109 @@ double* get_one_indexed_per_zero_indexed_data(double* zero_indexed_data, int l_p
 	} // i loop.
 
 	return(one_indexed_data);
+}
+
+double* quantize_per_nucleotide_profiles(double* profile, int l_profile, vector<double>* thresholds, vector<double>* quantized_vals)
+{
+	//int l_profile = 0;
+	//double* profile = load_per_nucleotide_binary_profile(prof_fp, l_profile);
+
+	//vector<char*>* thresh_val_lines = buffer_file(thresh_val_fp);
+
+	//vector<double>* quantized_vals = new vector<double>();
+	//vector<double>* thresholds = new vector<double>();
+	//for(int i_l = 0; i_l < thresh_val_lines->size(); i_l++)
+	//{
+	//	double cur_quantized_val;
+	//	double cur_thresh;
+	//	if(sscanf(thresh_val_lines->at(i_l), "%lf %lf", &cur_thresh, &cur_quantized_val) != 2)
+	//	{
+	//		fprintf(stderr, "Could not parse the line: %s\n", thresh_val_lines->at(i_l));
+	//		exit(0);
+	//	}
+
+	//	quantized_vals->push_back(cur_quantized_val);
+	//	thresholds->push_back(cur_thresh);
+	//	fprintf(stderr, "%lf -> %lf\n", cur_thresh, cur_quantized_val);
+	//} // i_l loop.
+
+	if(thresholds->size() != quantized_vals->size())
+	{
+		fprintf(stderr, "The size of thresholds is not the same as size of quantized values.\n");
+		exit(0);
+	}
+
+	double* quantized_profile = new double[l_profile+2];
+	for(int i = 1; i <= l_profile; i++)
+	{
+		double cur_prof_val = profile[i];
+
+		// Find the largest threshold that this value is greater than or equal to.
+		bool quantized_current_val = false;
+		for(int i_th = thresholds->size()-1;
+			!quantized_current_val && i_th >= 0; 
+			i_th--)
+		{
+			if(cur_prof_val >= thresholds->at(i_th))
+			{
+				quantized_current_val = true;
+				quantized_profile[i] = quantized_vals->at(i_th);
+			}
+		} // i_th loop.
+
+		if(!quantized_current_val)
+		{
+			fprintf(stderr, "Could not quantize the current value: %lf\n", profile[i]);
+			exit(0);
+		}
+	} // i loop.
+
+	return(quantized_profile);
+}
+
+double** joint_prune_multiple_profiles_per_thresholds(double** profiles, int n_profiles, int l_profile, double* threshold_per_profile, int& l_pruned_profile)
+{
+	// Go over all the profiles, find the regions.	
+	double** pruned_profiles = new double*[n_profiles];
+	for(int i_p = 0; i_p < n_profiles; i_p++)
+	{
+		pruned_profiles[i_p] = new double[l_profile+2];
+	} // i_p loop.
+
+	// Prune the columns.
+	l_pruned_profile = 1;
+	for(int i_sig = 1; i_sig <= l_profile; i_sig++)
+	{
+		bool include_cur_val = false;
+		for(int i_p = 0; i_p < n_profiles; i_p++)
+		{
+			if(threshold_per_profile[i_p] <= -1000)
+			{
+				//fprintf(stderr, "Not using %d. profile for joint pruning.\n");
+			}
+			else if(profiles[i_p][i_sig] > threshold_per_profile[i_p])
+			{
+				include_cur_val = true;
+			}
+		} // i_p loop.
+
+		if(include_cur_val)
+		{
+			// Add this columns to all the pruned profiles.
+			for(int i_p = 0; i_p < n_profiles; i_p++)
+			{
+				// Copy the value.
+				pruned_profiles[i_p][l_pruned_profile] = profiles[i_p][i_sig];
+			} // i_p loop.	
+
+			l_pruned_profile++;
+		}
+	} // i_sig loop.
+
+	// Pruned profiles are indexed 1 based.
+	l_pruned_profile--;
+
+	return(pruned_profiles);
 }
 
 double* copy_profile(double* signal_profile, int l_profile)
@@ -250,43 +390,6 @@ void dump_per_nucleotide_binary_profile_per_bedgraph(char* bgr_fp, bool dump_bin
 	fclose(f_op);
 }
 
-void dump_per_nucleotide_uchar_binary_profile(unsigned char* signal_profile, int l_profile, char* op_fp)
-{
-	// Dump the per nucleotide signal profile.
-	FILE* f_op = open_f(op_fp, "wb");
-
-	// Write data length to first couple bytes.
-	fwrite(&(l_profile), sizeof(int), 1, f_op);
-
-	// Dump the data: Dump 0 based data.
-	fwrite(&(signal_profile[1]), sizeof(unsigned char), l_profile+1, f_op);
-
-	fclose(f_op);
-}
-
-unsigned char* load_per_nucleotide_binary_uchar_profile(char* binary_per_nucleotide_profile_fp, int& l_profile)
-{
-	FILE* f_prof = open_f(binary_per_nucleotide_profile_fp, "rb");
-
-	// Read the profile length.
-	int l_data = 0;
-	fread(&l_data, sizeof(int), 1, f_prof);
-	l_profile = l_data;
-
-	// Read the data.
-	unsigned char* signal_profile_buffer = new unsigned char[l_profile+2];
-
-if(__DUMP_SIGNAL_TRACK_MSGS__)
-	fprintf(stderr, "Loading %d data values.\n", l_profile);
-
-	// Following is to use the codebase indexing: 1 based indexing.
-	fread(&(signal_profile_buffer[1]), sizeof(char), l_profile+1, f_prof);
-	
-	fclose(f_prof);
-
-	return(signal_profile_buffer);
-}
-
 void dump_per_nucleotide_binary_profile(double* signal_profile, int l_profile, char* op_fp)
 {
 	// Dump the per nucleotide signal profile.
@@ -395,3 +498,120 @@ double* get_zero_profile(int l_profile)
 	return(cur_profile);
 }
 
+vector<t_annot_region*>** get_peaks_per_per_nucleotide_signal_profile(double* signal_profile, char* chrom, int l_data, double min_thresh, double max_thresh)
+{
+	// Allocate the states of peaks at each position.
+	vector<t_annot_region*>** peaks_per_threshes = new vector<t_annot_region*>*[(int)max_thresh-(int)min_thresh+1];
+	int* peak_starts = new int[(int)max_thresh-(int)min_thresh+1];
+	for(int thresh = (int)min_thresh; thresh <= (int)max_thresh; thresh++)
+	{
+		peaks_per_threshes[thresh-(int)min_thresh] = new vector<t_annot_region*>();
+		peak_starts[thresh-(int)min_thresh] = 0;
+	} // thresh loop.
+
+	for(int i = 1; i <= l_data; i++)
+	{
+		for(int thresh = (int)min_thresh; thresh <= (int)max_thresh; thresh++)
+		{
+			if(signal_profile[i] >= thresh)
+			{
+				// The signal is below the threshold.
+				if(peak_starts[thresh-(int)min_thresh] == 0)
+				{
+					// Set a new peak start.
+					peak_starts[thresh-(int)min_thresh] = i;
+				}
+				else
+				{
+					// This was a peak already.
+				}
+			}
+			else
+			{
+				// The signal is below the threshold.
+				if(peak_starts[thresh-(int)min_thresh] != 0)
+				{
+					// Add this as a peak.
+					t_annot_region* new_peak = get_empty_region();
+					new_peak->chrom = t_string::copy_me_str(chrom);
+					new_peak->start = peak_starts[thresh-(int)min_thresh];
+					new_peak->end = i-1;
+					new_peak->strand = '+';
+
+					// Set the current start at this threshold to 0; no peak.
+					peak_starts[thresh-(int)min_thresh] = 0;
+
+					// Add the new peak.
+					peaks_per_threshes[thresh-(int)min_thresh]->push_back(new_peak);
+				}
+				else
+				{
+				// This was not a peak already.
+				}
+			}
+		} // thresh loop.
+	} // i loop.
+
+	delete [] peak_starts;
+
+	return(peaks_per_threshes);
+}
+
+vector<t_annot_region*>** get_valleys_per_per_nucleotide_signal_profile(double* signal_profile, char* chrom, int l_data, double min_thresh, double max_thresh)
+{
+	// Allocate the states of peaks at each position.
+	vector<t_annot_region*>** valleys_per_threshes = new vector<t_annot_region*>*[(int)max_thresh-(int)min_thresh+1];
+	int* valley_starts = new int[(int)max_thresh-(int)min_thresh+1];
+	for(int thresh = (int)min_thresh; thresh <= (int)max_thresh; thresh++)
+	{
+		valleys_per_threshes[thresh-(int)min_thresh] = new vector<t_annot_region*>();
+		valley_starts[thresh-(int)min_thresh] = 0;
+	} // thresh loop.
+
+	for(int i = 1; i <= l_data; i++)
+	{
+		for(int thresh = (int)min_thresh; thresh <= (int)max_thresh; thresh++)
+		{
+			if(signal_profile[i] <= thresh)
+			{
+				// The signal is below the threshold.
+				if(valley_starts[thresh-(int)min_thresh] == 0)
+				{
+					// Set a new peak start.
+					valley_starts[thresh-(int)min_thresh] = i;
+				}
+				else
+				{
+					// This was a peak already.
+				}
+			}
+			else
+			{
+				// The signal is above the threshold.
+				if(valley_starts[thresh-(int)min_thresh] != 0)
+				{
+					// Add this as a valley.
+					t_annot_region* new_valley = get_empty_region();
+					new_valley->chrom = t_string::copy_me_str(chrom);
+					new_valley->start = valley_starts[thresh-(int)min_thresh];
+					new_valley->end = i-1;
+					new_valley->strand = '+';
+
+					// Set the current start at this threshold to 0; no peak.
+					valley_starts[thresh-(int)min_thresh] = 0;
+
+					// Add the new peak.
+					valleys_per_threshes[thresh-(int)min_thresh]->push_back(new_valley);
+				}
+				else
+				{
+					// This was not a valley already.
+				}
+			}
+		} // thresh loop.
+	} // i loop.
+
+	delete [] valley_starts;
+
+	return(valleys_per_threshes);
+}

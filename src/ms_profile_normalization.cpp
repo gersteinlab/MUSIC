@@ -24,8 +24,8 @@ void get_per_window_scaling_factors_for_profile1_per_profile2(double* signal_pro
 	int l_processable_prof = (l_prof1 < l_prof2)?(l_prof1):(l_prof2);
 	int n_wins_2_process = l_processable_prof / l_win;
 
-	double* prof1_win_total_sigs = new double[n_wins_2_process];
-	double* prof2_win_total_sigs = new double[n_wins_2_process];
+	double* prof1_win_total_sigs = new double[n_wins_2_process + 2];
+	double* prof2_win_total_sigs = new double[n_wins_2_process + 2];
 
 	double total_prof1 = 0;
 	double total_prof2 = 0;
@@ -39,7 +39,7 @@ void get_per_window_scaling_factors_for_profile1_per_profile2(double* signal_pro
 		total_prof2 += signal_profile2[i];
 	} // i loop
 
-	total_sig_scaling_factor = total_prof2 / total_prof1;
+	total_sig_scaling_factor = total_prof1 / total_prof2;
 
 	// Count the numbers per window. 
 	//int n_scaling_win = n_meg_wins * MEG_BASE / win_size;
@@ -53,10 +53,14 @@ void get_per_window_scaling_factors_for_profile1_per_profile2(double* signal_pro
 	//int cur_chr_control_fragment_list_base_i = 0;
 
 	int n_processed_wins = 0;
+
+	FILE* f_per_win_vals = NULL;
+if(__DUMP_INPUT_NORMALIZATION_MSGS__)
+	f_per_win_vals = fopen("per_win_vals.txt", "w");
 	for(int i_win = 0; i_win < n_wins_2_process; i_win++)
 	{
 		int cur_win_start = l_win * i_win;
-		int cur_win_end = (i_win + 1) * l_win;
+		int cur_win_end = (i_win + 1) * l_win;		
 
 		double cur_total_prof1 = 0;
 		double cur_total_prof2 = 0;
@@ -72,13 +76,30 @@ void get_per_window_scaling_factors_for_profile1_per_profile2(double* signal_pro
 			prof2_win_total_sigs[n_processed_wins] = cur_total_prof2;
 			n_processed_wins++;
 		}
+
+if(__DUMP_INPUT_NORMALIZATION_MSGS__)
+		fprintf(f_per_win_vals, "%lf\t%lf\n", cur_total_prof1, cur_total_prof2);
 	} // i_win loop.
+
+if(__DUMP_INPUT_NORMALIZATION_MSGS__)
+	fclose(f_per_win_vals);
 
      // Compute the slopes.
 	per_win_2DOF_lls_scaling_factor = PeakSeq_slope(prof1_win_total_sigs, prof2_win_total_sigs, n_processed_wins);
 	per_win_1DOF_lls_scaling_factor = slope(prof1_win_total_sigs, prof2_win_total_sigs, n_processed_wins);
+	
+	double r = pearson_correlation(prof1_win_total_sigs, prof2_win_total_sigs, n_processed_wins);
 
-	//double pears_corr = pearson_correlation(prof1_win_total_sigs, prof2_win_total_sigs, n_processed_wins);
+if(__DUMP_INPUT_NORMALIZATION_MSGS__)
+	fprintf(stderr, "Pearson Coeff: %lf\nSignal Division: %lf\n1-DOF: %lf\n2-DOF: %lf\n", r, total_sig_scaling_factor, per_win_1DOF_lls_scaling_factor, 
+		per_win_2DOF_lls_scaling_factor);
+
+	//// If the total profile1 versus profile2 is much larger, use that.
+	//if(total_prof1 / total_prof2 > per_win_1DOF_lls_scaling_factor)
+	//{
+	//	per_win_1DOF_lls_scaling_factor = total_prof1 / total_prof2;
+	//}
+
 	delete [] prof1_win_total_sigs;
 	delete [] prof2_win_total_sigs;
 }
@@ -176,5 +197,13 @@ double pearson_correlation(double* prof1_total_sigs_per_win, double* prof2_total
 	return(r);
 }
 
+void predict_control_normalization_iterative()
+{
+	// Set a slope.
 
+	// Remove the enriched regions.
 
+	// Reset the slope.
+
+	// Do until convergence.	
+}

@@ -1494,8 +1494,8 @@ vector<int>* get_inter_region_distance_distribution(vector<t_annot_region*>* ann
 					if(cur_reg_min_distance > cur_dist)
 					{
 						cur_reg_min_distance = cur_dist;
-						fprintf(stderr, "5' close exon: %s:%d-%d\n", cur_chr_regs2->at(i_loc_reg2)->chrom, cur_chr_regs2->at(i_loc_reg2)->start, cur_chr_regs2->at(i_loc_reg2)->end);
-						getc(stdin);
+						//fprintf(stderr, "5' close exon: %s:%d-%d\n", cur_chr_regs2->at(i_loc_reg2)->chrom, cur_chr_regs2->at(i_loc_reg2)->start, cur_chr_regs2->at(i_loc_reg2)->end);
+						//getc(stdin);
 					}
 
 					i_loc_reg2++;
@@ -1509,8 +1509,8 @@ vector<int>* get_inter_region_distance_distribution(vector<t_annot_region*>* ann
 					if(cur_reg_min_distance > cur_dist)
 					{
 						cur_reg_min_distance = cur_dist;
-						fprintf(stderr, "3' close exon: %s:%d-%d\n", cur_chr_regs2->at(i_loc_reg2)->chrom, cur_chr_regs2->at(i_loc_reg2)->start, cur_chr_regs2->at(i_loc_reg2)->end);
-						getc(stdin);
+						//fprintf(stderr, "3' close exon: %s:%d-%d\n", cur_chr_regs2->at(i_loc_reg2)->chrom, cur_chr_regs2->at(i_loc_reg2)->start, cur_chr_regs2->at(i_loc_reg2)->end);
+						//getc(stdin);
 					}
 				}
 

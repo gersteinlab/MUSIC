@@ -5,8 +5,6 @@
 
 using namespace std;
 
-//class t_rng;
-
 // Stores the sorting information for the regions.
 struct t_sorting_info
 {
@@ -50,17 +48,6 @@ struct t_pooled_peak_association_info
 };
 
 vector<t_annot_region*>* get_top_region_per_total_coverage(vector<t_annot_region*>* regions, double max_covg);
-
-//void get_random_region_overlap_statistics(t_rng* rng,
-//	vector<t_annot_region*>* reg1, vector<t_annot_region*>* reg2,
-//	int n_rands,
-//	vector<char*>* chr_ids,
-//	vector<int>* chr_ls,
-//	double& orig_overlap_covg, 
-//	vector<double>* rand_overlap_covgs);
-
-//vector<t_annot_region*>* generate_random_regions_per_reference_regions(vector<t_annot_region*>* reference_regs, t_rng* rng, vector<char*>* chr_ids, vector<int>* l_per_chr_id);
-//vector<t_annot_region*>** generate_random_regions_per_reference_regions_buffered(vector<t_annot_region*>* reference_regs, t_rng* rng, vector<char*>* chr_ids, vector<int>* l_per_chr_id, int n_rands);
 
 vector<t_annot_region*>* extract_region_mids(vector<t_annot_region*>* regions, int l_mid_reg);
 

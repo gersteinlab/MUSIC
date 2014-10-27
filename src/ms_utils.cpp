@@ -24,7 +24,6 @@ char* get_file_extension(char* fp)
 	}
 }
 
-
 char* get_file_name(char* fp)
 {
 	t_string_tokens* tokens = t_string::tokenize_by_chars(fp, "/\\");
@@ -51,7 +50,7 @@ char* get_directory_per_fp(char* fp)
 	}
 	else
 	{
-		char* directory = new char[strlen(fp) + 2];
+		char* directory = new char[t_string::string_length(fp) + 2];
 		directory[0] = 0;
 
 		for(int i = 0; i < (int)fp_tokens->size() - 1; i++)
@@ -86,7 +85,7 @@ vector<char*>* load_directory_files(char* root_dir, char* extension)
         char current_fn[1000];
         while(fscanf(f_cmd_op, "%s", current_fn) == 1)
         {
-                char* new_fn = new char[strlen(current_fn) + 3];
+                char* new_fn = new char[t_string::string_length(current_fn) + 3];
                 strcpy(new_fn, current_fn);
                 dir_files->push_back(new_fn);
         }
@@ -273,64 +272,6 @@ bool check_file(char* fp)
 	return(true);
 }
 
-// Check for valid CR LF's depending on OS,
-// Should be run for all ASCII input files.
-void validate_file(char* fp)
-{
-#ifdef _WIN32
-	char cur_char;
-	// Open file in binary.
-	FILE* f_ip_bin = open_f(fp, "rb");
-	while(fread(&cur_char, 1, 1, f_ip_bin) == 1)
-	{
-		if(cur_char == CR)
-		{
-			if(fread(&cur_char, 1, 1, f_ip_bin) == 1)
-			{
-				if(cur_char != LF)
-				{
-					// Just a warning here.
-					printf("%s is not compatible with dos ascii files. CR+LF problem at %s(%d).\n", fp, __FILE__, __LINE__);
-					//exit(0);
-				}
-			}
-			else
-			{
-				// Just a warning here.
-				printf("%s is not compatible with dos ascii files. CR+LF problem at %s(%d).\n", fp, __FILE__, __LINE__);
-				//exit(0);
-			}
-		}
-		else if(cur_char == LF) // If there is an immediate LF before seeing a CR, this is a linux file.
-		{
-			// Just a warning here.
-			printf("%s is not compatible with dos ascii files. CR+LF problem at %s(%d).\n", fp, __FILE__, __LINE__);
-			//exit(0);
-		}
-
-	}
-	fclose(f_ip_bin);
-#endif
-
-#ifdef __unix__
-	char cur_char;
-	// Open file in binary.
-	FILE* f_ip_bin = open_f(fp, "rb");
-	while(fread(&cur_char, 1, 1, f_ip_bin) == 1)
-	{
-		// Linux files do not contain CR's.
-		// They only contain LF's.
-		if(cur_char == CR)
-		{
-			// Just a warning here.
-			printf("%s is not compatible with Linux ascii files. CR+LF problem at %s(%d).\n", fp, __FILE__, __LINE__);
-			//exit(0);
-		}
-	}
-	fclose(f_ip_bin);
-#endif
-}
-
 
 FILE* open_f(const char* fp, const char* mode)
 {
@@ -439,7 +380,7 @@ void subsample_file_lines_no_buffer(char* fp, int n_lines_to_subsample)
 
 bool line_empty(char* line)
 {
-	int l = strlen(line);
+	int l = t_string::string_length(line);
 	for(int i = 0; i < l; i++)
 	{
 		if(line[i] != ' ' &&
@@ -451,89 +392,6 @@ bool line_empty(char* line)
 	}
 
 	return(true);
-}
-
-char* getline_per_file_buffer(t_file_buffer* file_buffer)
-{
-	//t_string* line_str = new t_string();	
-	int i_buff = 0;
-	int l_buff = 500;
-	char* cur_buff = new char[l_buff];
-	memset(cur_buff, 0, l_buff);
-
-	char ret = 0;
-	while(1)
-	{
-		//ret = getc(file);
-		char cur_char;
-		ret = get_next_char_per_file_buffer(file_buffer, cur_char);
-
-		if(ret == false)
-		{
-			break;
-		}
-		
-#ifdef _WIN32
-		if(cur_char == CR)
-		{
-			// Make sure that the CR is followed by the correct character on the current system.
-			ret = get_next_char_per_file_buffer(file_buffer, cur_char);
-
-			if(ret == false)
-			{
-				fprintf(stderr, "Could not read a character after CR.\n");
-				exit(0);
-			}
-			else if(cur_char != LF)
-			{
-				fprintf(stderr, "CR is not followed by LF.\n");
-				exit(0);
-			}
-
-			break;
-		}
-#elif defined(__unix__)
-		// There is nothing to check in UNIX since a carriage return is a new line.
-		if(cur_char == CR)
-		{
-			fprintf(stderr, "Encountered CR character in __unix__.\n");
-			exit(0);
-		}
-		else if(cur_char == LF)
-		{
-			// Unix has LF as new line. 
-			break;
-		}
-#else
-#error "Neither _WIN32 nor __unix__ is not defined.\n";
-#endif
-
-		// Update the buffer if it became too long.
-		if(i_buff > (l_buff - 5))
-		{
-			l_buff *= 2;
-			char* new_buff = new char[l_buff];
-			memset(new_buff, 0, l_buff);
-			strcpy(new_buff, cur_buff);
-			delete [] cur_buff;
-			cur_buff = new_buff;
-		}
-
-		cur_buff[i_buff] = cur_char;
-		i_buff++;
-	} // file reading loop.
-
-	// If the end-of-file is encountered and there was nothing read, return NULL to indicate the there is nothing left to read and EOF is reached.
-	if(ret == false && 
-		//line_str->length() == 0)
-		i_buff == 0)
-	{
-		//delete(line_str);
-		delete [] cur_buff;
-		return(NULL);
-	}
-
-	return(cur_buff);	
 }
 
 bool get_next_char_per_file_buffer(t_file_buffer* file_buffer, char& char_val)
@@ -707,9 +565,9 @@ char* x_fgets(char* buff, int size, FILE* file)
 		return(NULL);
 	}
 
-	if(buff[strlen(buff) - 1] == '\n')
+	if(buff[t_string::string_length(buff) - 1] == '\n')
 	{
-		int i_new_line_char = (int)strlen(buff) - 1;
+		int i_new_line_char = (int)t_string::string_length(buff) - 1;
 		buff[i_new_line_char] = 0;
 	}
 
