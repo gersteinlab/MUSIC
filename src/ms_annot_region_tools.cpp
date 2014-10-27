@@ -162,14 +162,6 @@ vector<t_annot_region*>* get_top_region_per_total_coverage(vector<t_annot_region
 	return(top_regions);
 }
 
-// This function sets the sorting information for a list of regions and sets the cumulative start and cumulative end.
-/*
-Given a sorting callback, the cumulative start for a region is the smallest start of all the regions to the right of the current region.
-This is useful when performing binary searches, e.g., when we want to move to the left of a region, we are guaranteed to be to the left of the 
-region is we move to the left of cumulative start of the region, no matter what the sorting of the region list. 
-
-the cumulative end for a region is the largest end of all the regions to the left of the current region.
-*/
 void sort_set_sorting_info(vector<t_annot_region*>* regions, bool (sort_regions_callback)(t_annot_region*, t_annot_region*))
 {
 	// Set the sorting info for each region.
@@ -184,7 +176,6 @@ void sort_set_sorting_info(vector<t_annot_region*>* regions, bool (sort_regions_
 		sort(regions->begin(), regions->end(), sort_regions_callback);
 	}
 
-		// Set the cumulative start positions for each region: Cumulative start from the end of the list.
 	int current_cumulative_start = regions->back()->start;
 	for(int i_reg = regions->size()-1; i_reg >= 0; i_reg--)
 	{
@@ -199,7 +190,6 @@ void sort_set_sorting_info(vector<t_annot_region*>* regions, bool (sort_regions_
 		regions->at(i_reg)->sort_info = cur_reg_sorting_info;
 	} // i_reg loop.
 
-	// Set the cumulative end: Cumulative end from the beginning of the list.
 	int current_cumulative_end = 0;
 	for(int i_reg = 0; i_reg < (int)regions->size(); i_reg++)
 	{
