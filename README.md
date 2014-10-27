@@ -119,7 +119,7 @@ The other parameters (namely, gamma and sigma) do not depend on experimental var
 We suggest using the values specified in the manuscript, i.e., gamma=4, sigma=1.5.
 
 <h2>Multi-Mappability Signals</h2>
-Using Mappability correction increases the accuracy of MUSIC. You can download the multi-mappability signals for several common read lengths <a href="multimap_profiles/">here</a>.
+Using Mappability correction increases the accuracy of MUSIC. You can download the multi-mappability signals for several common read lengths <a href="http://archive.gersteinlab.org/proj/MUSIC/multimap_profiles/">here</a>.
 
 <h2>Multi-Mappability Profile Generation</h2>
 To generate the multi-mappability profile, MUSIC depends on a short read aligner. By default, <a href="http://bowtie-bio.sourceforge.net/bowtie2/index.shtml">bowtie2</a> generated SAM alignments are supported. Following are necessary for multi-Mappability profile generation:
@@ -160,4 +160,3 @@ The H3K36me3 datasets for K562 and GM12878 cell lines can be downloaded from <a 
 </div>
 </font>
 </html>
-
