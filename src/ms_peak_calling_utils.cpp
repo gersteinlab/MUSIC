@@ -65,6 +65,13 @@ void write_decomposition_bedGraphs(char* chip_reads_dir,
 			buffered_signal_profile, NULL, NULL,
 			l_buffer, l_profile);
 
+		// Check IP file.
+		if(!check_file(cur_chr_chip_reads_fp))
+		{
+			fprintf(stderr, "Processed IP reads for %s does not exist @ %s. Skipping.\n", chr_ids->at(i_chr), cur_chr_chip_reads_fp);
+			continue;
+		}
+
 		double* signal_profile = new double[l_profile + 2];	
 		for(int i = 1; i <= l_profile; i++)
 		{
@@ -281,7 +288,7 @@ void get_peaks(char* chip_reads_dir,
 		// Check IP file.
 		if(!check_file(cur_chr_chip_reads_fp))
 		{
-			fprintf(stderr, "Processed control reads for %s does not exist @ %s. Skipping.\n", chr_ids->at(i_chr), cur_chr_chip_reads_fp);
+			fprintf(stderr, "Processed IP reads for %s does not exist @ %s. Skipping.\n", chr_ids->at(i_chr), cur_chr_chip_reads_fp);
 			continue;
 		}
 
