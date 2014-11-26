@@ -277,6 +277,14 @@ void get_peaks(char* chip_reads_dir,
 		double* buffered_signal_profile = new double[l_buffer + 2];	
 		char cur_chr_chip_reads_fp[1000];
 		sprintf(cur_chr_chip_reads_fp, "%s/%s_mapped_reads.txt", chip_reads_dir, chr_ids->at(i_chr));
+
+		// Check IP file.
+		if(!check_file(cur_chr_chip_reads_fp))
+		{
+			fprintf(stderr, "Processed control reads for %s does not exist @ %s. Skipping.\n", chr_ids->at(i_chr), cur_chr_chip_reads_fp);
+			continue;
+		}
+
 		buffer_per_nucleotide_profile_no_buffer(cur_chr_chip_reads_fp, l_fragment, 
 			buffered_signal_profile, NULL, NULL,
 			l_buffer, l_profile);
@@ -297,6 +305,13 @@ void get_peaks(char* chip_reads_dir,
 		buffer_per_nucleotide_profile_no_buffer(cur_chr_control_reads_fp, l_fragment, 
 			buffered_control_profile, NULL, NULL, 
 			l_buffer, l_control);
+
+		// Check control file.
+		if(!check_file(cur_chr_control_reads_fp))
+		{
+			fprintf(stderr, "Processed control reads for %s does not exist @ %s. Skipping.\n", chr_ids->at(i_chr), cur_chr_control_reads_fp);
+			continue;
+		}
 
 		double* control_profile = new double[l_control + 2];
 		for(int i = 1; i <= l_control; i++)
