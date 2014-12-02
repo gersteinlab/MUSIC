@@ -27,7 +27,7 @@ Unlike other ER identification methods, MUSIC allows analyzing the scale length 
 scale length spectrum with custom granularity and generates the enriched regions at each length scale.
 
 <h2>Download and Installation</h2>
-You can download MUSIC C++ code <a href="MUSIC.zip">here</a>. There are no dependencies for building MUSIC. After download, type:
+You can download MUSIC C++ code <a href="https://github.com/gersteinlab/MUSIC/archive/master.zip">here</a>. There are no dependencies for building MUSIC. After download, type:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <i><font face="courier">
 unzip MUSIC.zip<br>
