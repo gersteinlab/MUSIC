@@ -58,96 +58,6 @@ struct t_mapped_read
 };
 
 #define MAX_N_PAIRS (10)
-struct t_mapped_PE_read
-{
-	char* mapping_str;
-	int base_index;
-
-	int span;
-	char strand;
-
-	// The list of pairs that are matching in id with this pair.
-	t_mapped_PE_read** matching_id_pairs;
-	int n_matching_id_pairs;
-};
-
-// 4 column preprocessed reads w id processing.
-struct t_read_line_w_id
-{
-	char* id;
-	char pair_position; // 0=first, 1=last.
-	char* read_line;
-};
-
-bool sort_read_line_entries_per_id(t_read_line_w_id* read1, t_read_line_w_id* read2);
-vector<char*>* sort_read_lines_per_id(vector<char*>* cur_chr_read_lines);
-void sort_read_lines_per_id_in_place(vector<char*>* cur_chr_read_lines);
-
-// Following represents one connection.
-struct t_connection_info_entry
-{
-	t_annot_region* connecting_region;
-	vector<char*>* read_ids;
-
-	// Strands for the read.
-	vector<char>* first_read_strands;
-	vector<char>* last_read_strands;
-
-	// Starts and ends of the read starts.
-	vector<int>* first_read_starts;
-	vector<int>* first_read_i_chrs;
-	vector<int>* last_read_starts;
-	vector<int>* last_read_i_chrs;
-};
-
-struct t_per_bin_connection_info
-{
-	double avg_mappability;
-	double avg_read_mappability;
-	vector<t_connection_info_entry*>* connecting_bins;
-};
-
-void get_insert_stats_per_concordant_PE_reads(char* sorted_pe_reads_fp, 
-	int l_read,
-	int max_concordant_mapping_separation, 
-	char valid_first_mapper_strand,
-	char valid_last_mapper_strand);
-
-void label_merge_external_sort_PE_reads_per_id(char* first_mapped_reads_dir,
-	char* last_mapped_reads_dir,
-	char* temp_sorted_op_dir,
-	char* sorted_op_fp);
-
-void label_PE_reads_file(char* reads_fp, char side_char, char* chr_id, char* op_fp);
-
-void sort_PE_reads_file_per_id_in_memory(char* mapped_reads_fp,
-	char* sorted_op_fp);
-
-void external_sort_PE_reads_per_file_list(char* read_fps, char* sorted_op_fp);
-
-void label_merge_external_sort_SE_reads_per_id(char* mapped_reads_dir,
-	char* temp_sorted_op_dir,
-	char* sorted_op_fp);
-
-//void generate_discordant_PE_read_connections_per_sorted_PE_reads_file(char* chr_ids_fp, char* sorted_pe_reads_fp, int l_bin, int min_l_same_chr_separation, int max_concordant_mapping_separation,
-//	char valid_first_mapper_strand,
-//	char valid_last_mapper_strand);
-
-void generate_discordant_PE_read_connections_per_sorted_PE_reads_file(char* chr_ids_lengths_fp, char* sorted_pe_reads_fp, 
-	char* mapability_dir,
-	int l_bin, 
-	int l_step,
-	int min_l_same_chr_separation, 
-	int max_concordant_mapping_separation,
-	char valid_first_mapper_strand,
-	char valid_last_mapper_strand);
-
-void generate_discordant_read_connections_per_id_sorted_SE_mapped_reads_file(char* chr_ids_fp, char* sorted_se_mapped_reads_fp, 
-	int l_bin, int min_l_same_chr_separation, int max_concordant_mapping_separation,
-	char valid_first_mapper_strand,
-	char valid_last_mapper_strand);
-
-void get_differential_discordant_PE_pair_connections(char* sample_fp, char* control_fp, char* op_fp);
 
 bool check_genome_index_update_per_CIGAR_entry(char entry_char);
 bool check_read_nuc_index_update_per_CIGAR_entry(char entry_char);
@@ -185,10 +95,6 @@ void count_mapped_reads_per_file(char* mrf_fp, void (preprocess_mapped_read_line
 	double n_total_reads);
 
 // Following are the preprocessing functions for preprocessing the mapped reads file 
-void preprocess_mapped_PE_SAM_file(char* pe_sam_fp,
-	int min_mapping_qual, 
-	char* first_reads_dir, char* last_reads_dir);
-
 void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void (preprocess_mapped_read_line)(char* cur_line, 
 	char* read_id,
 	char* chrom, 
@@ -237,16 +143,6 @@ void preprocess_BED5_read_line(char* cur_line,
 	char* chrom, 
 	int& chr_index, int& sequenced_length, 
 	char& strand_char, 
-	char* cigar_str);
-
-void preprocess_PE_SAM_read_line(char* cur_line, 
-	char* read_id,
-	char* chrom, 
-	bool& first_segment_in_template,
-	bool& last_segment_in_template,
-	int& chr_index, int& sequenced_length, 
-	char& strand_char, 
-	int& mapping_quality,
 	char* cigar_str);
 
 int get_l_signal_per_reads(char* reads_fp, int l_ext_tag);
