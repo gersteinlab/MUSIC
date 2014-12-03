@@ -38,6 +38,13 @@ make
 </div><br>
 to build MUSIC. The executable is located under directory <font face="courier">bin/</font>. It may be useful to install <a href="http://samtools.sourceforge.net/">samtools</a> for processing BAM files.
 
+To get help on which options are available, use:
+<div style="padding:8px;background-color:#ddd;line-height:1.4;">
+<font face="courier">
+MUSIC -help
+</font>
+</div>
+
 <h2>Usage</h2>
 MUSIC run starts with preprocessing the reads for ChIP and control samples (Note that we use samtools for converting BAM file to SAM files.):
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">

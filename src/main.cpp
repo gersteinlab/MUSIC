@@ -26,14 +26,12 @@
 
 bool __DUMP_PEAK_MESSAGES__ = false;
 
-int main(int argc, char* argv[])
+void print_usage(char* argv[])
 {
-	if(argc < 3)
-	{
-		fprintf(stderr, "USAGE: %s [options] [arguments]\n\
+	fprintf(stderr, "USAGE: %s [options] [arguments]\n\
 Options:\n\
 Read Preprocessing:\n\
-	-preprocess [File format (\"SAM\"/\"eland\"/\"bowtie\"/\"BED\")] [Mapped reads file path (\"stdin\" for piped input)] [Output directory]\n\
+	-preprocess [File format (\"SAM\"/\"ELAND\"/\"bowtie\"/\"tagAlign\"/\"BED\")] [Mapped reads file path (\"stdin\" for piped input)] [Output directory]\n\
 	-sort_reads [Reads directory] [Output directory]\n\
 	-remove_duplicates [Sorted reads directory] [Max # of duplicates per position] [Output directory]\n\
 Peak Selection:\n\
@@ -45,6 +43,28 @@ Profile Outputs:\n\
 Parametrization options:\n\
 	-get_per_win_p_vals_vs_FC [Options/Values]\n\
 	-get_scale_spectrum [Options/Values]\n", argv[0]);
+	
+	fprintf(stderr, "Parameters that work with all the options:\n\
+	-chip [ChIP reads directory]\n\
+	-control [control reads directory]\n\
+	-mapp [multi-mapability profiles directory]\n\
+	-begin_l [First scale smoothing window length (1000)]\n\
+	-end_l [Last scale smoothing window length (16000)]\n\
+	-step [Multiplicative window length step (1.5)]\n\
+	-l_mapp [Read length of multi-mapability profiles]\n\
+	-mapp_thr [Multi-mapability signal threshold used in correction (1.2)]\n\
+	-l_frag [Fragment length (200)]\n\
+	-l_c [Mapability correction window length (2000)]\n\
+	-l_p [Normalization window length for p-value computation]\n\
+	-gamma [Min threshold for unsmoothed/smoothed (4)]\n\
+	-q_val [Maximum q-value for the reported ERs]\n");
+}
+
+int main(int argc, char* argv[])
+{
+	if(argc < 3)
+	{
+		print_usage(argv);
 		exit(0);
 	}
 	
@@ -52,7 +72,15 @@ Parametrization options:\n\
 	TODO: Combine all the preprocessing (preprocess, sort, dedup) under 
 	-preprocess option.
 	***********************************************************************/
-	if(strcmp(argv[1], "-preprocess") == 0)
+	if(strcmp(argv[1], "-help") == 0 ||
+		strcmp(argv[1], "-version") == 0 ||
+		strcmp(argv[1], "-h") == 0 ||
+		strcmp(argv[1], "-v") == 0)
+	{
+		print_usage(argv);
+		exit(0);
+	}
+	else if(strcmp(argv[1], "-preprocess") == 0)
 	{
 		if(argc != 5)
 		{
