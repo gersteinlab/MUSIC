@@ -17,11 +17,6 @@ using namespace std;
 
 bool __DUMP_MAPPED_READ_TOOLS_MSGS__ = false;
 
-bool sort_read_line_entries_per_id(t_read_line_w_id* read1, t_read_line_w_id* read2)
-{
-	return(t_string::sort_strings(read1->id, read2->id));
-}
-
 bool sort_read_lines(char* read1, char* read2)
 {
 	return(t_string::sort_strings(read1, read2));
@@ -31,83 +26,6 @@ bool sort_read_lines(char* read1, char* read2)
 #define MIN(x, y) ((x)<(y))?(x):(y)
 
 #define L_CHROM (250*1000*1000)
-
-void sort_read_lines_per_id_in_place(vector<char*>* cur_chr_read_lines)
-{
-	// Replace tab/space with an end-of-string.
-	for(int i_read = 0; i_read < (int)cur_chr_read_lines->size(); i_read++)
-	{
-		int l_cur_line = t_string::string_length(cur_chr_read_lines->at(i_read));
-		bool set_eos = false;
-		for(int i = 0; i < l_cur_line; i++)
-		{
-			if(cur_chr_read_lines->at(i_read)[i] == ' ' || 
-				cur_chr_read_lines->at(i_read)[i] == '\t')
-			{
-				cur_chr_read_lines->at(i_read)[i] = 0;
-				set_eos = true;
-				break;
-			}
-		} // i loop.
-
-		if(!set_eos)
-		{
-			fprintf(stderr, "Did not find a delimited for %s\n", cur_chr_read_lines->at(i_read));
-			exit(0);
-		}
-	} // i_read loop.
-
-	// Sort the read lines.
-	fprintf(stderr, "Starting in-place sort\n");
-	sort(cur_chr_read_lines->begin(), cur_chr_read_lines->end(), sort_read_lines);
-	fprintf(stderr, "Done in-place sort\n");
-
-	// Replace the tabs positions back.
-	for(int i_read = 0; i_read < (int)cur_chr_read_lines->size(); i_read++)
-	{
-		int i = 0;
-		while(1)
-		{
-			// Repalce the end of string with a tab.
-			if(cur_chr_read_lines->at(i_read)[i] == 0)
-			{
-				cur_chr_read_lines->at(i_read)[i] = '\t';
-				break;
-			}
-
-			i++;
-		} // i loop.
-	} // i_read loop.
-}
-
-vector<char*>* sort_read_lines_per_id(vector<char*>* cur_chr_read_lines)
-{
-	vector<t_read_line_w_id*>* read_line_entries = new vector<t_read_line_w_id*>();
-	for(int i_read = 0; i_read < (int)cur_chr_read_lines->size(); i_read++)
-	{
-		t_read_line_w_id* cur_line_w_id = new t_read_line_w_id();
-		char cur_id[1000];
-		sscanf(cur_chr_read_lines->at(i_read), "%s", cur_id);
-		cur_line_w_id->id = t_string::copy_me_str(cur_id);
-		cur_line_w_id->read_line = cur_chr_read_lines->at(i_read);
-
-		read_line_entries->push_back(cur_line_w_id);
-	} // i_read loop.
-
-	sort(read_line_entries->begin(), read_line_entries->end(), sort_read_line_entries_per_id);
-
-	vector<char*>* sorted_read_lines = new vector<char*>();
-	for(int i_read = 0; i_read < (int)read_line_entries->size(); i_read++)
-	{
-		sorted_read_lines->push_back(read_line_entries->at(i_read)->read_line);
-
-		delete [] read_line_entries->at(i_read)->id;
-		delete read_line_entries->at(i_read);
-	} // i_read loop.
-	delete read_line_entries;
-
-	return(sorted_read_lines);
-}
 
 vector<char*>* sort_bucket_read_lines(char* bucket_fp)
 {

@@ -1984,12 +1984,18 @@ if(__DUMP_PEAK_MESSAGES__)
 			{
 				fprintf(stderr, "Assigning peaks at scale %.2f.\n", cur_l_scale);
 
-				// filtered_minima_3_scale_28.bed
 				char cur_peak_regs_bed_fp[1000];
-				//sprintf(cur_peak_regs_bed_fp, "filtered_minima_%s_scale_%d.bed", chr_ids->at(i_chr), i_scale);
 				sprintf(cur_peak_regs_bed_fp, "SSERs_%s_scale_%d.bed", chr_ids->at(i_chr), (int)cur_l_scale);
 				if(!check_file(cur_peak_regs_bed_fp))
 				{
+					if(cur_l_scale >= base_scale_l_win)
+					{
+						fprintf(stderr, "Could not find the peak file %s, which should have been here.\n", cur_peak_regs_bed_fp);
+						exit(0);
+					}
+
+					// Update the scale length before moving to the next scale.
+					cur_l_scale *= log_step;
 					continue;
 				}
 
@@ -2025,6 +2031,9 @@ if(__DUMP_PEAK_MESSAGES__)
 					delete cur_intersect_info;
 				} // i_int loop.
 
+				// Update cur_l_scale.
+				cur_l_scale *= log_step;
+
 				delete_annot_regions(int_regions);
 				delete_annot_regions(cur_scale_regions);
 			} // i_scale loop.
@@ -2036,10 +2045,20 @@ if(__DUMP_PEAK_MESSAGES__)
 			delete [] control_data;
 		} // i_chr loop.
 
+		// Generate the scale window lengths for all the scales we have.
+		vector<double>* per_scale_l_win = new vector<double>();
+		double cur_l_scale = 1;
+		for(int i_scale = 0; i_scale <= n_scales; i_scale++)
+		{
+			per_scale_l_win->push_back(cur_l_scale);
+			cur_l_scale *= log_step;
+		} // i_scale
+
 		fprintf(stderr, "Processing %d covering peaks over %d scales.\n", (int)(covering_peaks->size()), n_scales);
 
 		// At this point, get the mean and std dev for the p-value distributions at each scale.
 		FILE* f_per_scale_stats = open_f("per_scale_stats.txt", "w");
+		fprintf(f_per_scale_stats, "Scale Index\tWindow Length\t# Peaks\tPeak Coverage\n");
 		double* cur_scale_p_val_values = new double[100*1000*1000];
 		for(int i_scale = 0; i_scale < n_scales; i_scale++)
 		{
@@ -2063,7 +2082,7 @@ if(__DUMP_PEAK_MESSAGES__)
 			// Get the stats.
 			if(n_cur_scale_peaks > 0)
 			{
-				fprintf(f_per_scale_stats, "%d\t%d\t%d\n", i_scale, n_cur_scale_peaks, n_cur_scale_nucs);
+				fprintf(f_per_scale_stats, "%d\t%.2f\t%d\t%d\n", i_scale, per_scale_l_win->at(i_scale), n_cur_scale_peaks, n_cur_scale_nucs);
 
 				char cur_scale_peaks_fp[1000];
 				sprintf(cur_scale_peaks_fp, "scale_%d_only_peaks.bed", i_scale);
