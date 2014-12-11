@@ -128,6 +128,8 @@ We suggest using the values specified in the manuscript, i.e., gamma=4, sigma=1.
 <h2>Multi-Mappability Signals</h2>
 Using Mappability correction increases the accuracy of MUSIC. You can download the multi-mappability signals for several common read lengths <a href="http://archive.gersteinlab.org/proj/MUSIC/multimap_profiles/">here</a>.
 
+I would be more than happy to create new multi-mappability profiles. If you need a new one, please let me know and I can generate it and save it for future reference.
+
 <h2>Multi-Mappability Profile Generation</h2>
 To generate the multi-mappability profile, MUSIC depends on a short read aligner. By default, <a href="http://bowtie-bio.sourceforge.net/bowtie2/index.shtml">bowtie2</a> generated SAM alignments are supported. Following are necessary for multi-Mappability profile generation:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
