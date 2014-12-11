@@ -116,11 +116,11 @@ keeps the estimated false positive and estimated false negative rates below 10%.
 2. Using the p-value normalization window length in step 1, generate the scale specific ER scale spectrum: -get_scale_spectrum option.
 </font>
 </div><br>
-MUSIC generates the spectrum (using the scale lengths 100 base pairs to 1 megabase, the scale selection in the arguments is ignored in a text file where each 
-row corresponds to a scale length. In each row, the coverage of the SSERs is given. It is best to plot the spectrum, i.e., the scale lengths versus the 
+MUSIC generates the spectrum (using the scale lengths 100 base pairs to 1 megabase, and MUSIC writes a text file where each 
+row corresponds to a scale length. In each row, the 4th column is the coverage of the SSERs at that scale. It is best to plot the spectrum, i.e., the scale lengths versus the 
 fraction of coverage of the SSERs, then match the spectrum with the studied HMs in the manuscript. If the spectrum is very different from all of the 
-parametrized ChIP-Seq datasets, it is useful to generate the statistics on ER length distribution and distribution of ER-ER distances and use the procedure 
-described in the manuscript to select the scale levels.
+parametrized ChIP-Seq datasets, the begin scale can be selected as the smallest scale at which the features are expected to be seen by assessing the scale spectrum plot. End scale
+should be selected to not exceed the largest scale at which the scale spectrum has a maximum.
 
 The other parameters (namely, gamma and sigma) do not depend on experimental variables and are optimized for minimizing overmerging and maximizing sensitivity.
 We suggest using the values specified in the manuscript, i.e., gamma=4, sigma=1.5.

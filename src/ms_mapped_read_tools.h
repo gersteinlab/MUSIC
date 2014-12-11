@@ -14,6 +14,7 @@ const int K_BASE = 1000;
 class t_string;
 struct t_annot_region;
 
+
 // MApping information for a mapped read.
 struct t_mapping_info
 {

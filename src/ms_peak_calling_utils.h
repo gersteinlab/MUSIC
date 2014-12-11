@@ -56,6 +56,8 @@ vector<t_annot_region*>* set_per_strand_info_per_peaks(vector<t_annot_region*>* 
 		char* chip_reads_dir,
 		int l_fragment);
 
+double* load_normalized_multimappability_profile(char* mapability_signal_profile_fp, int& l_mapability_profile);
+
 void dump_ERs_per_q_value_and_summit(vector<t_annot_region*>* regions, char* op_fp);
 
 enum {P_VAL_PER_WIN_MEAN_SIGNAL, P_VAL_PER_WIN_MAX_SIGNAL};

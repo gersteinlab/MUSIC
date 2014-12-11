@@ -42,7 +42,7 @@ Profile Outputs:\n\
 	-write_MS_decomposition [Options/Values]\n\
 Parametrization options:\n\
 	-get_per_win_p_vals_vs_FC [Options/Values]\n\
-	-get_scale_spectrum [Options/Values]\n", argv[0]);
+	-get_scale_spectrum [Options/Values]\n\n", argv[0]);
 	
 	fprintf(stderr, "Parameters that work with all the options:\n\
 	-chip [ChIP reads directory]\n\
@@ -253,7 +253,10 @@ if(__DUMP_PEAK_MESSAGES__)
 				char cur_bucket_fp[1000];
 				//sprintf(cur_bucket_fp, "%s/bucket_%d.txt", preprocessed_reads_dir, bucket_starts->at(i_buck));
 				sprintf(cur_bucket_fp, "%s/bucket_%d.txt", sorted_reads_op_dir, bucket_starts->at(i_buck));
+
+if(__DUMP_PEAK_MESSAGES__)
 				fprintf(stderr, "Sorting reads in bucket %s.\n", cur_bucket_fp);
+
 				vector<char*>* cur_sorted_bucket_read_lines = sort_bucket_read_lines(cur_bucket_fp);
 
 				for(int i_l = 0; i_l < (int)cur_sorted_bucket_read_lines->size(); i_l++)
@@ -283,6 +286,7 @@ if(__DUMP_PEAK_MESSAGES__)
 		char* sorted_preprocessed_reads_dir = argv[2];
 		int max_n_amp_reads = atoi(argv[3]);
 		char* pruned_reads_dir = argv[4];
+
 
 		char chr_ids_fp[1000];
 		sprintf(chr_ids_fp, "%s/chr_ids.txt", sorted_preprocessed_reads_dir);
@@ -1404,9 +1408,9 @@ if(__DUMP_PEAK_MESSAGES__)
 		}
 
 		int l_fragment = 200;
-		int l_win_start = 500;
+		int l_win_start = 100;
 		int l_win_end = 5000;
-		int l_win_step = 250;
+		int l_win_step = 100;
 
 		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
 		bool ret = false;
@@ -1493,6 +1497,12 @@ if(__DUMP_PEAK_MESSAGES__)
 		// Load the chromosome id's.
 		char chr_ids_fp[1000];
 		sprintf(chr_ids_fp, "%s/chr_ids.txt", chip_reads_dir);
+		if(!check_file(chr_ids_fp))
+		{
+			fprintf(stderr, "Could not find %s\n", chr_ids_fp);
+			exit(0);
+		}
+
 		vector<char*>* chr_ids = buffer_file(chr_ids_fp);
 
 		// Go over all the chromosomes.
@@ -2308,6 +2318,22 @@ if(__DUMP_PEAK_MESSAGES__)
 		delete [] signal_profile_buffer;
 		delete [] char_signal_buffer;
 	} // -get_multimapability_signal_per_mapped_reads
+	else if(strcmp(argv[1], "-uchar_profile_2_double_profile") == 0)
+	{
+		// At this point, 
+		if(argc != 4)
+		{
+			fprintf(stderr, "USAGE: %s -uchar_profile_2_double_profile [uchar profile file path] [Output file path]\n", argv[0]);
+			exit(0);
+		}
+
+		char* mapability_signal_profile_fp = argv[2];
+		char* op_fp = argv[3];
+		int l_mapability_profile = 0;
+		double* uchar_profile = load_normalized_multimappability_profile(mapability_signal_profile_fp, l_mapability_profile);
+
+		dump_per_nucleotide_binary_profile(uchar_profile, l_mapability_profile, op_fp);
+	}
 	else
 	{
 		fprintf(stderr, "Unknown option.\n");

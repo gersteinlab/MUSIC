@@ -741,21 +741,27 @@ void preprocess_SAM_read_line(char* cur_line,
 	}
 
 	int flag;
+	char flag_str[100];
 	int _chr_index;
+	char _chr_index_str[100];
 	char fragment[100000];
 	char phred_quality_str[100000];
 
-	t_string_tokens* cur_tokens = t_string::tokenize_by_chars(cur_line, "\t");
+	//t_string_tokens* cur_tokens = t_string::tokenize_by_chars(cur_line, "\t");
 	//if(sscanf(cur_line, "%s %d %s %d %*s %s %*s %*s %*s %s %s", read_id, &flag, chrom, &_chr_index, cigar_str, fragment, phred_quality_str) == 7)
-	if(cur_tokens->size() >= 11)
+	//if(cur_tokens->size() >= 11)
+	if(sscanf(cur_line, "%[^'\t'] %[^'\t'] %[^'\t'] %[^'\t'] %*[^'\t'] %[^'\t'] %*[^'\t'] %*[^'\t'] %*[^'\t'] %[^'\t'] %[^'\t']", read_id, flag_str, chrom, _chr_index_str, cigar_str, fragment, phred_quality_str) == 7)
 	{
-		t_string::copy(read_id, cur_tokens->at(0)->str());
-		flag = atoi(cur_tokens->at(1)->str());
-		t_string::copy(chrom, cur_tokens->at(2)->str());
-		_chr_index = atoi(cur_tokens->at(3)->str());
-		t_string::copy(cigar_str, cur_tokens->at(5)->str());
-		t_string::copy(fragment, cur_tokens->at(9)->str());
-		t_string::copy(phred_quality_str, cur_tokens->at(10)->str());
+		//t_string::copy(read_id, cur_tokens->at(0)->str());
+		//flag = atoi(cur_tokens->at(1)->str());
+		//t_string::copy(chrom, cur_tokens->at(2)->str());
+		//_chr_index = atoi(cur_tokens->at(3)->str());
+		//t_string::copy(cigar_str, cur_tokens->at(5)->str());
+		//t_string::copy(fragment, cur_tokens->at(9)->str());
+		//t_string::copy(phred_quality_str, cur_tokens->at(10)->str());
+
+		_chr_index = atoi(_chr_index_str);
+		flag = atoi(flag_str);
 
 		// Translate the 0 based index in SAM file to ELAND's 1 based indexing.
 		//chr_index += (CODEBASE_START_BASE - SAM_START_BASE);
@@ -785,7 +791,7 @@ void preprocess_SAM_read_line(char* cur_line,
 		chrom[0] = 0;
 	}
 
-	t_string::clean_tokens(cur_tokens);
+	//t_string::clean_tokens(cur_tokens);
 }
 
 //void preprocess_BED_read_line(char* cur_line, 

@@ -62,74 +62,6 @@ if(__DUMP_FILTER_MSGS__)
 	ext_array->n_vals++;
 }
 
-const double _PI = 3.141592653589;
-double* get_extended_odd_length_gaussian(double sigma, double scale, double n_sigma_per_half_win, int& l_filter)
-{
-	t_ext_double_array* ext_array = alloc_ext_array();
-	double win = n_sigma_per_half_win * scale * sigma;
-
-	double denom = scale * pow(2*_PI, .5) * sigma;
-	int l_side = 0;
-	int l_skipped = 0;
-	//double delta_t = 0.006125;
-	double delta_t = 0.0125;
-
-	double total_filter = 0.0;
-	for(double t = -1.0*win; t <= 0; t += delta_t)
-	{
-		double cur_sigma_squared = (sigma * sigma);
-		double cur_g_val = (1/denom) * delta_t * exp(-1 * t * t / (2 * cur_sigma_squared));
-
-		// Add the value.
-		if(cur_g_val > pow(10.0, -11.0))
-		{
-			//fprintf(f_half_gaus, "%lf\n", cur_g_val);
-			add_val(ext_array, cur_g_val);
-			l_side++;
-			total_filter += cur_g_val;
-		}
-		else
-		{
-			l_skipped++;
-		}
-	} // t loop.
-
-	if((l_skipped + l_side + l_side) % 2 == 0)
-	{
-		l_skipped++;
-	}
-	
-	l_filter = l_skipped + l_side + l_side;
-	double max_val = ext_array->buffer[l_side-1];
-
-	total_filter = total_filter + total_filter + l_skipped * max_val;
-
-	double* extended_gauss = new double[l_filter];
-	int i_arr = 0;
-	for(int i = 0; i < l_side; i++)
-	{
-		extended_gauss[i_arr] = ext_array->buffer[i] / total_filter;
-		i_arr++;
-	}
-
-	for(int i = 0; i < l_skipped; i++)
-	{
-		extended_gauss[i_arr] = max_val / total_filter;
-		i_arr++;
-	}
-
-	for(int i = 0; i < l_side; i++)
-	{
-		extended_gauss[i_arr] = ext_array->buffer[l_side-i-1] / total_filter;
-		i_arr++;
-	}
-
-	delete [] ext_array->buffer;
-	delete ext_array;	
-
-	return(extended_gauss);
-}
-
 void get_next_2_exp(int val, int& larger_exp_val, int& expon)
 {
 	int cur_val = 1;
@@ -177,7 +109,7 @@ double* median_filter_data(double* track_data,
 	// Set the maximum value for the histogram.
 	int MAX_VAL = -1000*1000;
 	int MIN_VAL = 1000*1000;
-	for(int i_sig = 0; i_sig < l_track_data; i_sig++)
+	for(int i_sig = 1; i_sig <= l_track_data; i_sig++)
 	{
 		if(MAX_VAL < (int)(track_data[i_sig]))
 		{
@@ -203,7 +135,7 @@ double* median_filter_data(double* track_data,
 	int prev_avg_end = 0;
 
 	// Go over all the positions as the middle of the filtering window.
-	for(int cur_win_mid = 0; cur_win_mid < l_track_data; cur_win_mid++)
+	for(int cur_win_mid = 1; cur_win_mid <= l_track_data; cur_win_mid++)
 	{
 		int cur_avg_start = (cur_win_mid > half_l_averaging)?(cur_win_mid - half_l_averaging):(1);
 		int cur_avg_end = (cur_win_mid + half_l_averaging <= l_track_data)?(cur_win_mid + half_l_averaging):(l_track_data);
@@ -437,7 +369,7 @@ if(__DUMP_FILTER_MSGS__)
 			// Set the maximum value for the histogram.
 			int MAX_VAL = -1000*1000;
 			int MIN_VAL = 1000*1000;
-			for(int i_sig = 0; i_sig < l_track_data; i_sig++)
+			for(int i_sig = 1; i_sig <= l_track_data; i_sig++)
 			{
 				if(MAX_VAL < (int)(track_data[i_sig]))
 				{
@@ -849,7 +781,7 @@ if(__DUMP_FILTER_MSGS__)
 			// Set the maximum value for the histogram.
 			int MAX_VAL = -1000*1000;
 			int MIN_VAL = 1000*1000;
-			for(int i_sig = 0; i_sig < l_track_data; i_sig++)
+			for(int i_sig = 1; i_sig <= l_track_data; i_sig++)
 			{
 				if(MAX_VAL < (int)(track_data[i_sig]))
 				{

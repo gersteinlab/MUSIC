@@ -24,6 +24,57 @@
 
 bool __DUMP_PEAK_CALLING_UTILS_MSGS__ = false;
 
+#define __UCHAR_MAPPABILITY__
+#undef __DOUBLE_MAPPABILITY__
+
+double* load_normalized_multimappability_profile(char* mapability_signal_profile_fp, int& l_mapability_profile)
+{
+	double* mapability_signal_profile = NULL;
+
+	if(!check_file(mapability_signal_profile_fp))
+	{
+		l_mapability_profile = 0;
+		return(NULL);
+	}
+
+#ifdef __DOUBLE_MAPPABILITY__
+	// Load the mapability map signal profile, do filtering.
+	mapability_signal_profile = load_per_nucleotide_binary_profile(mapability_signal_profile_fp, l_mapability_profile);
+
+	// Do mapability aware median filtering on the current signal profile.
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+	fprintf(stderr, "Scaling the mapability map with %d.\n", l_read_mapability_signal * 2);
+
+	int mapability_scaling = l_read * 2;
+	for(int i = 1; i <= l_mapability_profile; i++)
+	{
+		mapability_signal_profile[i] /= mapability_scaling;
+	} // i loop.
+#elif defined(__UCHAR_MAPPABILITY__)
+	// Following loads the mappability signal profile from the char version of the multi-mappability profile.
+	// Load the mapability map signal profile, do filtering.
+	unsigned char* mapability_signal_char_profile = load_per_nucleotide_binary_uchar_profile(mapability_signal_profile_fp, l_mapability_profile);
+	mapability_signal_profile = new double[l_mapability_profile + 2];
+	for(int i = 1; i <= l_mapability_profile; i++)
+	{
+		unsigned char unsigned_char_val = (unsigned char)(mapability_signal_char_profile[i]);
+		mapability_signal_profile[i] = (double)(unsigned_char_val);
+		mapability_signal_profile[i] /= 100;
+
+		if(mapability_signal_profile[i] < 0)
+		{
+			fprintf(stderr, "Sanity check failed.\n");
+			exit(0);
+		}
+	} // i loop.
+	delete [] mapability_signal_char_profile;
+#else
+	#error "Must define the type of mappability."
+#endif
+
+	return(mapability_signal_profile);
+}
+
 void write_decomposition_bedGraphs(char* chip_reads_dir,
 		int l_fragment,
 		char* mapability_signal_dir,
@@ -106,42 +157,6 @@ void write_decomposition_bedGraphs(char* chip_reads_dir,
 		if(check_file(mapability_signal_profile_fp))
 		{
 			double* mapability_signal_profile = NULL;
-
-#define __UCHAR_MAPPABILITY__
-#ifdef __DOUBLE_MAPPABILITY__
-			// Load the mapability map signal profile, do filtering.
-			mapability_signal_profile = load_per_nucleotide_binary_profile(mapability_signal_profile_fp, l_mapability_profile);
-
-			// Do mapability aware median filtering on the current signal profile.
-if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
-			fprintf(stderr, "Scaling the mapability map with %d.\n", l_read_mapability_signal * 2);
-
-			int mapability_scaling = l_read * 2;
-			for(int i = 1; i <= l_mapability_profile; i++)
-			{
-				mapability_signal_profile[i] /= mapability_scaling;
-			} // i loop.
-#elif defined(__UCHAR_MAPPABILITY__)
-			// Following loads the mappability signal profile from the char version of the multi-mappability profile.
-			// Load the mapability map signal profile, do filtering.
-			unsigned char* mapability_signal_char_profile = load_per_nucleotide_binary_uchar_profile(mapability_signal_profile_fp, l_mapability_profile);
-			mapability_signal_profile = new double[l_mapability_profile + 2];
-			for(int i = 1; i <= l_mapability_profile; i++)
-			{
-				unsigned char unsigned_char_val = (unsigned char)(mapability_signal_char_profile[i]);
-				mapability_signal_profile[i] = (double)(unsigned_char_val);
-				mapability_signal_profile[i] /= 100;
-
-				if(mapability_signal_profile[i] < 0)
-				{
-					fprintf(stderr, "Sanity check failed.\n");
-					exit(0);
-				}
-			} // i loop.
-			delete [] mapability_signal_char_profile;
-#else
-			#error "Must define the type of mappability."
-#endif
 
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 			fprintf(stderr, "Smoothing the signal profile.\n");
@@ -280,7 +295,7 @@ void get_peaks(char* chip_reads_dir,
 		// Generate the current signal profile.
 		int l_buffer = 300*1000*1000;
 		int l_profile = 0;
-		int l_read = l_read_mapability_signal;
+		//int l_read = l_read_mapability_signal;
 		double* buffered_signal_profile = new double[l_buffer + 2];	
 		char cur_chr_chip_reads_fp[1000];
 		sprintf(cur_chr_chip_reads_fp, "%s/%s_mapped_reads.txt", chip_reads_dir, chr_ids->at(i_chr));
@@ -297,7 +312,7 @@ void get_peaks(char* chip_reads_dir,
 			l_buffer, l_profile);
 
 		double* signal_profile = new double[l_profile + 2];	
-		for(int i = 1; i <= l_profile; i++)
+		for(int i = 0; i <= l_profile; i++)
 		{
 			signal_profile[i] = buffered_signal_profile[i];
 		} // i loop.
@@ -321,7 +336,7 @@ void get_peaks(char* chip_reads_dir,
 		}
 
 		double* control_profile = new double[l_control + 2];
-		for(int i = 1; i <= l_control; i++)
+		for(int i = 0; i <= l_control; i++)
 		{
 			control_profile[i] = buffered_control_profile[i];
 		} // i loop.
@@ -332,46 +347,10 @@ void get_peaks(char* chip_reads_dir,
 		sprintf(mapability_signal_profile_fp, "%s/%s.bin", mapability_signal_dir, chr_ids->at(i_chr));
 
 		double* mapability_aware_smoothed_signal_profile = NULL;
-		int l_mapability_profile = 0;
 		if(check_file(mapability_signal_profile_fp))
 		{
-			double* mapability_signal_profile = NULL;
-
-#define __UCHAR_MAPPABILITY__
-#ifdef __DOUBLE_MAPPABILITY__
-			// Load the mapability map signal profile, do filtering.
-			mapability_signal_profile = load_per_nucleotide_binary_profile(mapability_signal_profile_fp, l_mapability_profile);
-
-			// Do mapability aware median filtering on the current signal profile.
-if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
-			fprintf(stderr, "Scaling the mapability map with %d.\n", l_read * 2);
-
-			int mapability_scaling = l_read * 2;
-			for(int i = 1; i <= l_mapability_profile; i++)
-			{
-				mapability_signal_profile[i] /= mapability_scaling;
-			} // i loop.
-#elif defined(__UCHAR_MAPPABILITY__)
-			// Following loads the mappability signal profile from the char version of the multi-mappability profile.
-			// Load the mapability map signal profile, do filtering.
-			unsigned char* mapability_signal_char_profile = load_per_nucleotide_binary_uchar_profile(mapability_signal_profile_fp, l_mapability_profile);
-			mapability_signal_profile = new double[l_mapability_profile + 2];
-			for(int i = 1; i <= l_mapability_profile; i++)
-			{
-				unsigned char unsigned_char_val = (unsigned char)(mapability_signal_char_profile[i]);
-				mapability_signal_profile[i] = (double)(unsigned_char_val);
-				mapability_signal_profile[i] /= 100;
-
-				if(mapability_signal_profile[i] < 0)
-				{
-					fprintf(stderr, "Sanity check failed.\n");
-					exit(0);
-				}
-			} // i loop.
-			delete [] mapability_signal_char_profile;
-#else
-			#error "Must define the type of mappability."
-#endif
+			int l_mapability_profile = 0;
+			double* mapability_signal_profile = load_normalized_multimappability_profile(mapability_signal_profile_fp, l_mapability_profile);
 
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 			fprintf(stderr, "Smoothing the signal profile.\n");
@@ -699,6 +678,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 				removed_peaks->push_back(p_value_end_pruned_minima->at(i_reg));
 			}
 		} // i_reg loop.
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		fprintf(stderr, "%s: %d peaks passed. (%d)\n", chr_ids->at(i_chr), (int)strand_filtered_peaks->size(), (int)p_value_end_pruned_minima->size());
 
 		// Free unused peak memory.
@@ -830,35 +810,30 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 			char mapability_signal_profile_fp[1000];
 			sprintf(mapability_signal_profile_fp, "%s/%s.bin", mapability_signal_dir, chr_ids->at(i_chr));
 
+			// Load the multi-mappability profile.
+			int l_mapability_profile = 0;
+			double* mapability_signal_profile = NULL;
 			if(check_file(mapability_signal_profile_fp))
 			{
-				// Load the mapability map signal profile, do filtering.
-				int l_mapability_profile = 0;
-				double* mapability_signal_profile = load_per_nucleotide_binary_profile(mapability_signal_profile_fp, l_mapability_profile);
-				int mapability_scaling = l_read * 2;
-				for(int i = 1; i <= l_mapability_profile; i++)
-				{
-					mapability_signal_profile[i] /= mapability_scaling;
-				} // i loop.
-
-				for(int i_reg = 0; i_reg < (int)strand_filtered_peaks->size(); i_reg++)
-				{
-					t_ER_info* cur_ER_info = (t_ER_info*)(strand_filtered_peaks->at(i_reg)->data);
-
-					int cur_ER_trough_posn = get_trough_posn_per_ER(signal_profile, l_profile, 
-																	mapability_signal_profile, l_mapability_profile, max_normalized_mapability_signal,
-																	strand_filtered_peaks->at(i_reg)->start, strand_filtered_peaks->at(i_reg)->end, 
-																	0);
-
-					cur_ER_info->mappable_trough = cur_ER_trough_posn;
-				} // i_reg loop.
-
-				// Free mappability memory.
-				delete [] mapability_signal_profile;
+				mapability_signal_profile = load_normalized_multimappability_profile(mapability_signal_profile_fp, l_mapability_profile);
 			}
-			else
+
+			for(int i_reg = 0; i_reg < (int)strand_filtered_peaks->size(); i_reg++)
 			{
-				fprintf(stderr, "Could not find the multi-mappabibility signal, skipping mappable trough detection.\n");
+				t_ER_info* cur_ER_info = (t_ER_info*)(strand_filtered_peaks->at(i_reg)->data);
+
+				int cur_ER_trough_posn = get_trough_posn_per_ER(signal_profile, l_profile, 
+																mapability_signal_profile, l_mapability_profile, max_normalized_mapability_signal,
+																strand_filtered_peaks->at(i_reg)->start, strand_filtered_peaks->at(i_reg)->end, 
+																0);
+
+				cur_ER_info->mappable_trough = cur_ER_trough_posn;
+			} // i_reg loop.
+
+			// Free mappability memory.
+			if(mapability_signal_profile != NULL)
+			{
+				delete [] mapability_signal_profile;
 			}
 		} // mappable trough identification check.
 
@@ -978,20 +953,19 @@ int get_trough_posn_per_ER(double* signal_profile, int l_profile,
 		}
 
 		double total_multi_mapp_signal = 0;
-		for(int i = prev_max->extrema_posn; i <= next_max->extrema_posn; i++)
+		if(multi_mapp_signal != NULL)
 		{
-			total_multi_mapp_signal += multi_mapp_signal[i];
-		} // i loop.
+			for(int i = prev_max->extrema_posn; i <= next_max->extrema_posn; i++)
+			{
+				total_multi_mapp_signal += multi_mapp_signal[ER_start+i];
+			} // i loop.
+		}
 
 		// Make sure that the region in this trough is mappable.
-		if(total_multi_mapp_signal / (next_max->extrema_posn - prev_max->extrema_posn+1) < max_multi_mapp_val)
+		if(multi_mapp_signal == NULL ||
+			total_multi_mapp_signal / (next_max->extrema_posn - prev_max->extrema_posn+1) < max_multi_mapp_val)
 		{
 			rank_sum_per_minimum->push_back(i_min + prev_max_rank + next_max_rank);
-		}
-		else
-		{
-			// Set the maximum possible rank to this minimum.
-			rank_sum_per_minimum->push_back((int)maxima_nodes->size() + (int)maxima_nodes->size() + (int)minima_nodes->size());
 		}
 	} // i_min loop.
 
@@ -1080,6 +1054,7 @@ vector<t_annot_region*>* filter_strand_uneven_peaks(vector<t_annot_region*>* pea
 	//vector<t_annot_region*>* removed_peaks = new vector<t_annot_region*>();
 	for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
 	{
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		fprintf(stderr, "%s..", chr_ids->at(i_chr));
 
 		// Skip chromosome M for now.
@@ -1110,6 +1085,8 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 }
 			
 		vector<t_annot_region*>* cur_chr_regs = get_regions_per_chromosome(peak_regions, chr_ids->at(i_chr));
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		fprintf(stderr, "Filtering %d regions on chromosome %s\n", (int)cur_chr_regs->size(), chr_ids->at(i_chr));
 			
 		int n_passing_peaks = 0;
@@ -1188,6 +1165,7 @@ vector<t_annot_region*>* set_per_strand_info_per_peaks(vector<t_annot_region*>* 
 	//vector<t_annot_region*>* removed_peaks = new vector<t_annot_region*>();
 	for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
 	{
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		fprintf(stderr, "%s..", chr_ids->at(i_chr));
 
 		// Skip chromosome M for now.
@@ -1218,6 +1196,8 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 }
 			
 		vector<t_annot_region*>* cur_chr_regs = get_regions_per_chromosome(peak_regions, chr_ids->at(i_chr));
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		fprintf(stderr, "Filtering %d regions on chromosome %s\n", (int)cur_chr_regs->size(), chr_ids->at(i_chr));
 			
 		//int n_passing_peaks = 0;
