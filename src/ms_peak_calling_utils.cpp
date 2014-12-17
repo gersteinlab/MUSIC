@@ -169,7 +169,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		} // mapability based filtering check.
 		else
 		{
-			fprintf(stderr, "Could not find the mapability map profile, skipping it.");
+			fprintf(stderr, "Mappability map is not found, skipping it.");
 			mapability_aware_smoothed_signal_profile = new double[l_profile + 2];
 			for(int i = 1; i <= l_profile; i++)
 			{
@@ -981,7 +981,8 @@ int get_trough_posn_per_ER(double* signal_profile, int l_profile,
 		}
 	} // i_min loop.
 
-	int trough_posn = minima_nodes->at(smallest_rank_sum_min_i)->extrema_posn;
+	// This position is with respect to the beginning of the ER. Since extrema are with respect to begining of the ER, translate this coordinate.
+	int trough_posn = minima_nodes->at(smallest_rank_sum_min_i)->extrema_posn + ER_start;
 
 	delete_extrema_nodes(minima_nodes);
 	delete_extrema_nodes(maxima_nodes);

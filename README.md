@@ -84,18 +84,26 @@ MUSIC -write_MS_decomposition -chip chip/dedup -control input/dedup -mapp Mappab
 The smoothed bedGraph files are usually very small in size and can easily be stored/transferred.
 
 <h2>Output format</h2>
-MUSIC output BED file has 9 columns:
+MUSIC outputs an extended BED file with 9 columns:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <font face="courier">
-[chromosome]	[start]	[end]	["."]	[log Q-value]	[Strand ("+")]	[Summit position]	[Mappable Trough Position]	[Fold Change]
+Column 1: [chromosome]<br>
+Column 2: [start]<br>
+Column 3: [end]<br>
+Column 4: ["."]<br>
+Column 5: [log Q-value]<br>
+Column 6: [Strand ("+")]<br>
+Column 7: [Summit position]<br>
+Column 8: [Mappable Trough Position (Only for punctate ERs)]<br>
+Column 9: [Fold Change]<br>
 </font>
 </div><br>
 The entries are sorted with respect to increasing Q-values.
 
 <h2>Parameter Selection Guideline for the Studied ChIP-Seq Datasets</h2>
 MUSIC has a set of default parameter sets for broad marks (like H3K36me3, H3K27me3), punctate marks (H3K4me3), and point binding (like transcription factors) which work well in most 
-cases. When one is not sure about the ER scale spectrum for a signal profile at hand, one can perform a scale spectrum analysis using a large spectrum with dense sampling and get an 
-idea about the dominant ER length scale (if there is one) for the signal profile and match the parameters used in the manuscript.
+cases. When one is not sure about the ER scale spectrum for a signal profile at hand, one can perform a scale spectrum analysis (-get_scale_spectrum) and get an 
+idea about the dominant ER length scale for the signal profile and match the parameters used in the manuscript.
 
 <h2>Parametrization for New ChIP-Seq Datasets</h2>
 When a new ChIP-Seq dataset is going to be processed, it is necessary to choose begin and end length scales and p-value normalization window length. The length
@@ -108,7 +116,7 @@ There are two steps to parameter selection:
 1. Select a stringent p-value normalization window length: -get_per_win_p_vals_FC option. 
 </font>
 </div><br>
-This option estimates the false positive and negative rates using a large selection of p-value window lengths. It is best to choose the p-value window length that 
+This option generates estimates for the false positive and negative rates using a large selection of p-value window lengths. The It is best to choose the p-value window length that 
 keeps the estimated false positive and estimated false negative rates below 10%.
 
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">

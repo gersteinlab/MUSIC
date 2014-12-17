@@ -1244,7 +1244,7 @@ if(__DUMP_MAPPED_READ_TOOLS_MSGS__)
 		bool splicing_tag_extension_check_pass = true;
 		if(is_read_spliced && l_extended_tag > 0)
 		{
-			fprintf(stderr, "Spliced read with tag extension: %s\n", mapping_map_str);
+			fprintf(stderr, "Spliced read with tag extension: %s\r", mapping_map_str);
 			splicing_tag_extension_check_pass = false;
 		}
 

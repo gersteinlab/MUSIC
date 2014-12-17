@@ -1510,8 +1510,9 @@ if(__DUMP_PEAK_MESSAGES__)
 
 		double* log_factorials = buffer_log_factorials(100*1000);
 
-		FILE* f_win_stats = open_f("window_stats.txt", "w");
-		for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
+		//FILE* f_win_stats = open_f("window_stats.txt", "w");
+		//for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
+		int i_chr = 0; 
 		{
 			fprintf(stderr, "Processing chromosome %s\n", chr_ids->at(i_chr));
 
@@ -1619,17 +1620,24 @@ if(__DUMP_PEAK_MESSAGES__)
 						log_p_val = 0.0;
 					}
 
+					/* 
+					Following counts 4 different classes of windows: 
+					1. Sig FC-Sig p-val: TP
+					2. Sig FC-Insig p-val: FN
+					3. Insig FC-Sig p-val: FP
+					4. Insig FC-Insig p-val: TN
+					*/
 					if(log_p_val != 0 &&
 						total_control > 0 &&
 						total_signal / (win_end-win_start) > 1)
 					{
-						fprintf(f_win_stats, "%d\t%d\t%d\t%lf\t%lf\t%lf\n", 
-							i_chr, 
-							win_start, 
-							win_end, 
-							log_p_val,
-							total_signal,
-							total_control);
+						//fprintf(f_win_stats, "%d\t%d\t%d\t%lf\t%lf\t%lf\n", 
+						//	i_chr, 
+						//	win_start, 
+						//	win_end, 
+						//	log_p_val,
+						//	total_signal,
+						//	total_control);
 
 						// Set the counters per window length.
 						if(log_p_val < xlog(0.05))
@@ -1676,9 +1684,16 @@ if(__DUMP_PEAK_MESSAGES__)
 			delete [] signal_profile;
 			delete [] control_profile;
 		} // i_chr loop.
-		fclose(f_win_stats);
+		//fclose(f_win_stats);
 
 		// Dump the FC stats: We are assuming that FC is a gold standard and assume p-val computations are prediction.
+		/* 
+		Following counts 4 different classes of windows: 
+		1. Sig FC-Sig p-val: TP
+		2. Sig FC-Insig p-val: FN
+		3. Insig FC-Sig p-val: FP
+		4. Insig FC-Insig p-val: TN
+		*/
 		fprintf(stderr, "Dumping the per l_win accuracy stats.\n");
 		FILE* f_per_win_accuracy_stats = open_f("per_l_win_accuracy_stats.txt", "w");
 		for(int l_win = l_win_start; l_win <= l_win_end; l_win += l_win_step)
