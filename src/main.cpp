@@ -1508,7 +1508,7 @@ if(__DUMP_PEAK_MESSAGES__)
 		// Go over all the chromosomes.
 		//vector<t_per_win_stat_info*>* all_window_stat_info = new vector<t_per_win_stat_info*>();
 
-		double* log_factorials = buffer_log_factorials(100*1000);
+		double* log_factorials = buffer_log_factorials(1000*1000);
 
 		//FILE* f_win_stats = open_f("window_stats.txt", "w");
 		//for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
@@ -1787,26 +1787,26 @@ if(__DUMP_PEAK_MESSAGES__)
 			l_fragment = atoi(l_frag_str);
 		}
 
-		//ret = false;
-		//char* base_scale_l_win_str = cli->get_value_by_option("-begin_l", ret);
-		//if(ret)
-		//{
-		//	base_scale_l_win = atof(base_scale_l_win_str);
-		//}
+		ret = false;
+		char* base_scale_l_win_str = cli->get_value_by_option("-begin_l", ret);
+		if(ret)
+		{
+			base_scale_l_win = atof(base_scale_l_win_str);
+		}
 
-		//ret = false;
-		//char* end_scale_l_win_str = cli->get_value_by_option("-end_l", ret);
-		//if(ret)
-		//{
-		//	end_scale_l_win = atof(end_scale_l_win_str);
-		//}
+		ret = false;
+		char* end_scale_l_win_str = cli->get_value_by_option("-end_l", ret);
+		if(ret)
+		{
+			end_scale_l_win = atof(end_scale_l_win_str);
+		}
 
-		//ret = false;
-		//char* log_step_str = cli->get_value_by_option("-step", ret);
-		//if(ret)
-		//{
-		//	log_step = atof(log_step_str);
-		//}
+		ret = false;
+		char* log_step_str = cli->get_value_by_option("-step", ret);
+		if(ret)
+		{
+			log_step = atof(log_step_str);
+		}
 
 		ret = false;
 		char* l_p_val_norm_win_str = cli->get_value_by_option("-l_p", ret);
