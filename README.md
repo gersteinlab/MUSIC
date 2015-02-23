@@ -84,26 +84,18 @@ MUSIC -write_MS_decomposition -chip chip/dedup -control input/dedup -mapp Mappab
 The smoothed bedGraph files are usually very small in size and can easily be stored/transferred.
 
 <h2>Output format</h2>
-MUSIC outputs an extended BED file with 9 columns:
+MUSIC output BED file has 9 columns:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <font face="courier">
-Column 1: [chromosome]<br>
-Column 2: [start]<br>
-Column 3: [end]<br>
-Column 4: ["."]<br>
-Column 5: [log Q-value]<br>
-Column 6: [Strand ("+")]<br>
-Column 7: [Summit position]<br>
-Column 8: [Mappable Trough Position (Only for punctate ERs)]<br>
-Column 9: [Fold Change]<br>
+[chromosome]	[start]	[end]	["."]	[log Q-value]	[Strand ("+")]	[Summit position]	[Mappable Trough Position]	[Fold Change]
 </font>
 </div><br>
 The entries are sorted with respect to increasing Q-values.
 
 <h2>Parameter Selection Guideline for the Studied ChIP-Seq Datasets</h2>
 MUSIC has a set of default parameter sets for broad marks (like H3K36me3, H3K27me3), punctate marks (H3K4me3), and point binding (like transcription factors) which work well in most 
-cases. When one is not sure about the ER scale spectrum for a signal profile at hand, one can perform a scale spectrum analysis (-get_scale_spectrum) and get an 
-idea about the dominant ER length scale for the signal profile and match the parameters used in the manuscript.
+cases. When one is not sure about the ER scale spectrum for a signal profile at hand, one can perform a scale spectrum analysis using a large spectrum with dense sampling and get an 
+idea about the dominant ER length scale (if there is one) for the signal profile and match the parameters used in the manuscript.
 
 <h2>Parametrization for New ChIP-Seq Datasets</h2>
 When a new ChIP-Seq dataset is going to be processed, it is necessary to choose begin and end length scales and p-value normalization window length. The length
@@ -116,7 +108,7 @@ There are two steps to parameter selection:
 1. Select a stringent p-value normalization window length: -get_per_win_p_vals_FC option. 
 </font>
 </div><br>
-This option generates estimates for the false positive and negative rates using a large selection of p-value window lengths. The It is best to choose the p-value window length that 
+This option estimates the false positive and negative rates using a large selection of p-value window lengths. It is best to choose the p-value window length that 
 keeps the estimated false positive and estimated false negative rates below 10%.
 
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
@@ -124,19 +116,17 @@ keeps the estimated false positive and estimated false negative rates below 10%.
 2. Using the p-value normalization window length in step 1, generate the scale specific ER scale spectrum: -get_scale_spectrum option.
 </font>
 </div><br>
-MUSIC generates the spectrum (using the scale lengths 100 base pairs to 1 megabase, and MUSIC writes a text file where each 
-row corresponds to a scale length. In each row, the 4th column is the coverage of the SSERs at that scale. It is best to plot the spectrum, i.e., the scale lengths versus the 
+MUSIC generates the spectrum (using the scale lengths 100 base pairs to 1 megabase, the scale selection in the arguments is ignored in a text file where each 
+row corresponds to a scale length. In each row, the coverage of the SSERs is given. It is best to plot the spectrum, i.e., the scale lengths versus the 
 fraction of coverage of the SSERs, then match the spectrum with the studied HMs in the manuscript. If the spectrum is very different from all of the 
-parametrized ChIP-Seq datasets, the begin scale can be selected as the smallest scale at which the features are expected to be seen by assessing the scale spectrum plot. End scale
-should be selected to not exceed the largest scale at which the scale spectrum has a maximum.
+parametrized ChIP-Seq datasets, it is useful to generate the statistics on ER length distribution and distribution of ER-ER distances and use the procedure 
+described in the manuscript to select the scale levels.
 
 The other parameters (namely, gamma and sigma) do not depend on experimental variables and are optimized for minimizing overmerging and maximizing sensitivity.
 We suggest using the values specified in the manuscript, i.e., gamma=4, sigma=1.5.
 
 <h2>Multi-Mappability Signals</h2>
 Using Mappability correction increases the accuracy of MUSIC. You can download the multi-mappability signals for several common read lengths <a href="http://archive.gersteinlab.org/proj/MUSIC/multimap_profiles/">here</a>.
-
-I would be more than happy to create new multi-mappability profiles. If you need a new one, please let me know and I can generate it and save it for future reference.
 
 <h2>Multi-Mappability Profile Generation</h2>
 To generate the multi-mappability profile, MUSIC depends on a short read aligner. By default, <a href="http://bowtie-bio.sourceforge.net/bowtie2/index.shtml">bowtie2</a> generated SAM alignments are supported. Following are necessary for multi-Mappability profile generation:
@@ -170,7 +160,7 @@ finishes before running 'temp_process_mapping.csh'.
 
 <h2>Datasets</h2>
 The ENCODE datasets can be downloaded from <a href="http://hgdownload.cse.ucsc.edu/goldenPath/hg19/encodeDCC/">UCSC Genome Browser</a>. <br>
-The H3K36me3 datasets for K562 and GM12878 cell lines can be downloaded from <a href="h3k36me3.tar.bz2">here</a>.
+The H3K36me3 datasets for K562 and GM12878 cell lines can be downloaded from <a href="http://archive.gersteinlab.org/proj/MUSIC/h3k36me3.tar.bz2">here</a>.
 <!--------------- The enriched regions identified by MUSIC for the HMs and Polymerase ChIP-Seq datasets for several cell lines can be downloaded from <a href="multiMappability_signals/">here</a>. ---->
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <b><i>Arif Harmanci (arif.harmanci@yale.edu), Joel Rozowsky, Mark Gerstein, 2014</i></b>
