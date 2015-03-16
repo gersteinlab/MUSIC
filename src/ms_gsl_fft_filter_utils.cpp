@@ -763,10 +763,10 @@ if(__DUMP_FILTER_MSGS__)
 		}
 		else
 		{
-if(__DUMP_FILTER_MSGS__)
-{
+//if(__DUMP_FILTER_MSGS__)
+//{
 			fprintf(stderr, "Processing scale %lf (%lf)\n", scale, scale_end);
-}
+//}
 
 			// Get the filter for the current scale: The gaussian filter.
 			int int_scale = (int)(scale);

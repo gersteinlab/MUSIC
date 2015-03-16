@@ -21,6 +21,7 @@
 #include "ms_utils.h"
 #include "ms_signal_enrichment_utils.h"
 #include "ms_peak_calling_utils.h"
+#include "wavfile.h"
 
 bool __DUMP_PEAK_CALLING_UTILS_MSGS__ = false;
 
@@ -73,6 +74,257 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 #endif
 
 	return(mapability_signal_profile);
+}
+
+void write_decomposition_WAV(char* chip_reads_dir,
+		int l_fragment,
+		char* mapability_signal_dir,
+		int l_read_mapability_signal,
+		double base_scale_l_win,
+		double end_scale_l_win,
+		double log_step,
+		int l_mapability_filtering_win,
+		double max_normalized_mapability_signal)
+{
+	char chr_ids_fp[1000];
+	sprintf(chr_ids_fp, "%s/chr_ids.txt", chip_reads_dir);
+	vector<char*>* chr_ids = buffer_file(chr_ids_fp);
+	if(chr_ids == NULL)
+	{
+		fprintf(stderr, "Could not load the chromosome id's for the chip data.\n");
+		exit(0);
+	}
+
+	// Process each chromosome.
+	for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
+	{
+		fprintf(stderr, "Writing %s..", chr_ids->at(i_chr));
+
+		// Skip chromosome M for now.
+		if(strcmp(chr_ids->at(i_chr), "M") == 0)
+		{
+			continue;
+		}
+
+		// Generate the current signal profile.
+		int l_buffer = 300*1000*1000;
+		int l_profile = 0;
+		//int l_read = l_read_mapability_signal;
+		double* buffered_signal_profile = new double[l_buffer + 2];	
+		char cur_chr_chip_reads_fp[1000];
+		sprintf(cur_chr_chip_reads_fp, "%s/%s_mapped_reads.txt", chip_reads_dir, chr_ids->at(i_chr));
+		buffer_per_nucleotide_profile_no_buffer(cur_chr_chip_reads_fp, l_fragment, 
+			buffered_signal_profile, NULL, NULL,
+			l_buffer, l_profile);
+
+		double* signal_profile = new double[l_profile + 2];	
+		for(int i = 1; i <= l_profile; i++)
+		{
+			signal_profile[i] = buffered_signal_profile[i];
+		} // i loop.
+		delete [] buffered_signal_profile;
+
+		//// Generate the current control profile.
+		//l_buffer = 300*1000*1000;
+		//int l_control = 0;
+		//double* buffered_control_profile = new double[l_buffer + 2];
+		//char cur_chr_control_reads_fp[1000];
+		//sprintf(cur_chr_control_reads_fp, "%s/%s_mapped_reads.txt", control_reads_dir, chr_ids->at(i_chr));
+		//buffer_per_nucleotide_profile_no_buffer(cur_chr_control_reads_fp, l_fragment, 
+		//	buffered_control_profile, NULL, NULL, 
+		//	l_buffer, l_control);
+
+
+		//double* control_profile = new double[l_control + 2];
+		//for(int i = 1; i <= l_control; i++)
+		//{
+		//	control_profile[i] = buffered_control_profile[i];
+		//} // i loop.
+		//delete [] buffered_control_profile;
+		
+		// Load and process the mapability profile.
+		char mapability_signal_profile_fp[1000];
+		sprintf(mapability_signal_profile_fp, "%s/%s.bin", mapability_signal_dir, chr_ids->at(i_chr));
+
+		double* mapability_aware_smoothed_signal_profile = NULL;
+		int l_mapability_profile = 0;
+		if(check_file(mapability_signal_profile_fp))
+		{
+			double* mapability_signal_profile = NULL;
+
+#define __UCHAR_MAPPABILITY__
+#ifdef __DOUBLE_MAPPABILITY__
+			// Load the mapability map signal profile, do filtering.
+			mapability_signal_profile = load_per_nucleotide_binary_profile(mapability_signal_profile_fp, l_mapability_profile);
+
+			// Do mapability aware median filtering on the current signal profile.
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+			fprintf(stderr, "Scaling the mapability map with %d.\n", l_read_mapability_signal * 2);
+
+			int mapability_scaling = l_read * 2;
+			for(int i = 1; i <= l_mapability_profile; i++)
+			{
+				mapability_signal_profile[i] /= mapability_scaling;
+			} // i loop.
+#elif defined(__UCHAR_MAPPABILITY__)
+			// Following loads the mappability signal profile from the char version of the multi-mappability profile.
+			// Load the mapability map signal profile, do filtering.
+			unsigned char* mapability_signal_char_profile = load_per_nucleotide_binary_uchar_profile(mapability_signal_profile_fp, l_mapability_profile);
+			mapability_signal_profile = new double[l_mapability_profile + 2];
+			for(int i = 1; i <= l_mapability_profile; i++)
+			{
+				unsigned char unsigned_char_val = (unsigned char)(mapability_signal_char_profile[i]);
+				mapability_signal_profile[i] = (double)(unsigned_char_val);
+				mapability_signal_profile[i] /= 100;
+
+				if(mapability_signal_profile[i] < 0)
+				{
+					fprintf(stderr, "Sanity check failed.\n");
+					exit(0);
+				}
+			} // i loop.
+			delete [] mapability_signal_char_profile;
+#else
+			#error "Must define the type of mappability."
+#endif
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+			fprintf(stderr, "Smoothing the signal profile.\n");
+			mapability_aware_smoothed_signal_profile = mapability_aware_median_filter(signal_profile, l_profile,
+																					mapability_signal_profile, l_mapability_profile,
+																					max_normalized_mapability_signal,
+																					l_mapability_filtering_win);
+
+			delete [] mapability_signal_profile;
+		} // mapability based filtering check.
+		else
+		{
+			fprintf(stderr, "Could not find the mapability map profile, skipping it.");
+			mapability_aware_smoothed_signal_profile = new double[l_profile + 2];
+			for(int i = 1; i <= l_profile; i++)
+			{
+				mapability_aware_smoothed_signal_profile[i] = signal_profile[i];
+			} // i loop.
+		}
+
+//		// Scale the control with respect to signal.
+//		double per_win_2DOF_lls_scaling_factor = 0;
+//		double per_win_1DOF_lls_scaling_factor = 0;
+//		double total_sig_scaling_factor = 0;
+//		get_per_window_scaling_factors_for_profile1_per_profile2(control_profile, l_control, signal_profile, l_profile, 10000,
+//																	per_win_2DOF_lls_scaling_factor,
+//																	per_win_1DOF_lls_scaling_factor,
+//																	total_sig_scaling_factor);
+//
+//		double scaling_factor = per_win_1DOF_lls_scaling_factor;
+//
+//if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+//		fprintf(stderr, "Scaling control with factor of %lf\n", scaling_factor);
+//
+//		// Go over the whole control signal.
+//		for(int i = 0; i < l_control; i++)
+//		{
+//			control_profile[i] *= scaling_factor;
+//		} // i loop.
+
+		// Now, do the multiscale decomposition, 
+		vector<double>* scales_per_i_scale = new vector<double>();
+		vector<double*>* filtered_tracks = multiscale_median_filter_data(mapability_aware_smoothed_signal_profile, l_profile, 
+			base_scale_l_win, end_scale_l_win, log_step, 
+			scales_per_i_scale,
+			true,
+			false, 
+			false, 
+			false, 
+			NULL, 
+			NULL,
+			"temp");
+
+		// Dump the tracks.
+		short int* merged_waveform_buffer = new short int[l_profile + 2];
+		memset(merged_waveform_buffer, 0, sizeof(short int) * l_profile);
+		for(int i_scale = 0; i_scale < (int)scales_per_i_scale->size(); i_scale++)
+		{
+			char cur_decomp_fp[1000];
+			sprintf(cur_decomp_fp, "%s_scale_%d.bin", "temp", i_scale);
+
+			if(check_file(cur_decomp_fp))
+			{
+				int l_cur_decomp;
+				double* cur_filtered_track = load_per_nucleotide_binary_profile(cur_decomp_fp, l_cur_decomp);
+
+				int l_cur_last_index = MIN(l_cur_decomp, l_profile);
+				for(int i = 1; i < l_cur_last_index; i++)
+				{
+					merged_waveform_buffer[i] += (short int)(cur_filtered_track[i]);
+				} // i loop.
+
+				// Delete the temp file.
+				remove(cur_decomp_fp);
+
+				//char cur_bgr_fp[1000];
+				//sprintf(cur_bgr_fp, "chr%s_scale_%d.bgr", chr_ids->at(i_chr), (int)(floor(scales_per_i_scale->at(i_scale))));
+				//dump_bedGraph_per_per_nucleotide_binary_profile(cur_filtered_track, l_cur_decomp, chr_ids->at(i_chr), cur_bgr_fp);
+				delete [] cur_filtered_track;
+			}
+		} // i_scale loop.
+		delete filtered_tracks;
+
+		fprintf(stderr, "Dumping WAV file.\n");
+
+		// Amplify to get 
+		short max_val = 0;
+		short min_val = 60*1000;
+		for(int i = 0; i < l_profile; i++)
+		{
+			if(max_val < merged_waveform_buffer[i])
+			{
+				max_val = merged_waveform_buffer[i];
+			}
+
+			if(min_val > merged_waveform_buffer[i])
+			{
+				min_val = merged_waveform_buffer[i];
+			}
+		} // i_loop.
+
+		double norm_val = ((double)64000 / (double)(max_val - min_val));
+		double half_val = (max_val + min_val) / 2;
+		for(int i = 0; i < l_profile; i++)
+		{
+			double fraction_posn_per_cur_val = fabs((merged_waveform_buffer[i] - half_val)/half_val);
+			double a = (1 - fraction_posn_per_cur_val);
+			double warping_factor = pow((1 - a*a),.5) / (a+.05);
+			//if(warping_factor > 1 || warping_factor < 0)
+			//{
+			//	fprintf(stderr, "Sanity check failed: %lf\n", warping_factor);
+			//	exit(0);
+			//}
+			merged_waveform_buffer[i] *= (short)(warping_factor * norm_val * (merged_waveform_buffer[i] - half_val));
+		} // i loop.
+
+		char cur_chr_wav_fp[1000];
+		sprintf(cur_chr_wav_fp, "%s.wav", chr_ids->at(i_chr));
+		FILE * f_wave = wavfile_open(cur_chr_wav_fp);
+		fprintf(stderr, "Opened WAV file.\n");
+		if(f_wave == NULL) 
+		{
+			fprintf(stderr, "couldn't open %s for writing.", cur_chr_wav_fp);
+			exit(0);
+		}
+
+		fprintf(stderr, "Writing WAV file.\n");
+		wavfile_write(f_wave,merged_waveform_buffer,l_profile);
+		fprintf(stderr, "Closing WAV file.\n");
+		wavfile_close(f_wave);
+		fprintf(stderr, "Done!\n");
+
+		delete [] merged_waveform_buffer;
+		delete scales_per_i_scale;
+		delete [] signal_profile;
+		//delete [] control_profile;
+		delete [] mapability_aware_smoothed_signal_profile;
+	} // i_chr loop.
 }
 
 void write_decomposition_bedGraphs(char* chip_reads_dir,
@@ -241,6 +493,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 
 void get_peaks(char* chip_reads_dir,
 		char* control_reads_dir,
+		vector<char*>* chr_ids_2_use,
 		int l_fragment,
 		char* mapability_signal_dir,
 		int l_read_mapability_signal,
@@ -271,13 +524,26 @@ void get_peaks(char* chip_reads_dir,
 		exit(0);
 	}
 
-	char chr_ids_fp[1000];
-	sprintf(chr_ids_fp, "%s/chr_ids.txt", chip_reads_dir);
-	vector<char*>* chr_ids = buffer_file(chr_ids_fp);
-	if(chr_ids == NULL)
+	// Load the chromosome ids; if there is a set of chromosomes to be used, use those.
+	vector<char*>* chr_ids = NULL;
+	if(chr_ids_2_use == NULL)
 	{
-		fprintf(stderr, "Could not load the chromosome id's for the chip data.\n");
-		exit(0);
+		char chr_ids_fp[1000];
+		sprintf(chr_ids_fp, "%s/chr_ids.txt", chip_reads_dir);
+		chr_ids = buffer_file(chr_ids_fp);
+		if(chr_ids == NULL)
+		{
+			fprintf(stderr, "Could not load the chromosome id's for the chip data.\n");
+			exit(0);
+		}
+	}
+	else
+	{
+		chr_ids = new vector<char*>();
+		for(int i_chr = 0; i_chr < (int)chr_ids_2_use->size(); i_chr++)
+		{
+			chr_ids->push_back(t_string::copy_me_str(chr_ids_2_use->at(i_chr)));			
+		} // i_chr loop.
 	}
 
 	// Process each chromosome.
@@ -379,6 +645,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		} // i loop.
 
 		// Scale the control with respect to signal.
+		fprintf(stderr, "Scaling control signal profile.\n");
 		double per_win_2DOF_lls_scaling_factor = 0;
 		double per_win_1DOF_lls_scaling_factor = 0;
 		double total_sig_scaling_factor = 0;
@@ -409,6 +676,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		vector<double>* scales_per_i_scale = new vector<double>();
 		vector<vector<t_annot_region*>*>* per_scale_minima_regions = new vector<vector<t_annot_region*>*>();
 
+		fprintf(stderr, "Computing MS decomposition.\n");
 		get_filtered_maxima_regions_multiscale_filtered_data(mapability_aware_smoothed_signal_profile, 
 			l_profile, 
 			base_scale_l_win, end_scale_l_win, log_step,
@@ -432,11 +700,6 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 		vector<t_annot_region*>* all_filtered_pruned_minima_regions = new vector<t_annot_region*>();
 		for(int i_scale = 0; i_scale < (int)per_scale_minima_regions->size(); i_scale++)
 		{
-if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
-{
-			fprintf(stderr, "Filtering minima at %d. scale.\n", i_scale);
-}
-
 			if(scales_per_i_scale->at(i_scale) < base_scale_l_win)
 			{
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
@@ -451,6 +714,8 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 				sprintf(cur_scaled_filtered_minima_fp, "all_minima_scale_%d.bed", i_scale);
 				dump_BED(cur_scaled_filtered_minima_fp, per_scale_minima_regions->at(i_scale));
 }
+
+				fprintf(stderr, "Filtering minima at %d. scale.\n", i_scale);
 
 				vector<t_annot_region*>* rd_pruned_minima = prune_region_ends_per_window_average(per_scale_minima_regions->at(i_scale), signal_profile, l_profile, 
 					control_profile, l_control, 

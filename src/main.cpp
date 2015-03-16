@@ -42,7 +42,9 @@ Profile Outputs:\n\
 	-write_MS_decomposition [Options/Values]\n\
 Parametrization options:\n\
 	-get_per_win_p_vals_vs_FC [Options/Values]\n\
-	-get_scale_spectrum [Options/Values]\n\n", argv[0]);
+	-get_scale_spectrum [Options/Values]\n\
+Recreative Options (Fun with ChIP-Seq):\n\
+	-get_multiscale_music [Options/Values]\n\n", argv[0]);
 	
 	fprintf(stderr, "Parameters that work with all the options:\n\
 	-chip [ChIP reads directory]\n\
@@ -1054,6 +1056,7 @@ if(__DUMP_PEAK_MESSAGES__)
 
 		get_peaks(chip_reads_dir,
 			control_reads_dir,
+			NULL,
 			l_fragment,
 			mapability_signal_dir,
 			l_read_mapability_signal,
@@ -1211,6 +1214,7 @@ if(__DUMP_PEAK_MESSAGES__)
 
 		get_peaks(chip_reads_dir,
 			control_reads_dir,
+			NULL,
 			l_fragment,
 			mapability_signal_dir,
 			l_read_mapability_signal,
@@ -1369,6 +1373,7 @@ if(__DUMP_PEAK_MESSAGES__)
 
 		get_peaks(chip_reads_dir,
 			control_reads_dir,
+			NULL,
 			l_fragment,
 			mapability_signal_dir,
 			l_read_mapability_signal,
@@ -1401,7 +1406,7 @@ if(__DUMP_PEAK_MESSAGES__)
 							-chip [ChIP reads directory]\n\
 							-control [control reads directory]\n\
 							-l_frag [Fragment length (200)]\n\
-							-l_win_min [Minimum p-val window length (500)]\n\
+							-l_win_min [Minimum p-val window length (100)]\n\
 							-l_win_max [Maximum p-val window length (5000)]\n\
 							-l_win_step [p-val window length step (250)]\n", argv[0]);
 			exit(0);
@@ -1837,8 +1842,16 @@ if(__DUMP_PEAK_MESSAGES__)
 			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
 		}
 
+		// Load the SSERs and process.
+		char chr_ids_fp[1000];
+		sprintf(chr_ids_fp, "%s/chr_ids.txt", chip_reads_dir);
+		vector<char*>* all_chr_ids = buffer_file(chr_ids_fp);
+		vector<char*>* chr_ids = new vector<char*>();
+		chr_ids->push_back(t_string::copy_me_str(all_chr_ids->at(0)));
+
 		get_peaks(chip_reads_dir,
 			control_reads_dir,
+			chr_ids,
 			l_fragment,
 			mapability_signal_dir,
 			l_read_mapability_signal,
@@ -1860,17 +1873,6 @@ if(__DUMP_PEAK_MESSAGES__)
 			.5,		// The flip probability.
 			false,
 			0.05); 
-
-		// Load the SSERs and process.
-		char chr_ids_fp[1000];
-		sprintf(chr_ids_fp, "%s/chr_ids.txt", chip_reads_dir);
-
-		vector<char*>* chr_ids = buffer_file(chr_ids_fp);
-		if(chr_ids == NULL)
-		{
-			fprintf(stderr, "Could not load the file.\n");
-			exit(0);
-		}
 
 		double* log_factorials = buffer_log_factorials(1000*1000);		
 
@@ -2119,6 +2121,150 @@ if(__DUMP_PEAK_MESSAGES__)
 
 		fclose(f_per_scale_stats);
 	} // -get_scale_spectrum option.
+	else if(strcmp(argv[1], "-get_multiscale_music") == 0)
+	{
+		if(argc != 11)
+		{
+			fprintf(stderr, "USAGE: %s -get_multiscale_music get_scale_spectrum [Options/Values]\n\
+							-chip [ChIP reads directory]\n\
+							-control [control reads directory]\n\
+							-mapp [multi-mapability profiles directory]\n\
+							-begin_l [First scale smoothing window length (1000)]\n\
+							-end_l [Last scale smoothing window length (16000)]\n\
+							-step [Multiplicative window length step (1.5)]\n\
+							-l_mapp [Read length of multi-mapability profiles]\n\
+							-mapp_thr [Multi-mapability signal threshold used in correction (1.2)]\n\
+							-l_frag [Fragment length (200)]\n\
+							-l_c [Mapability correction window length (2000)]\n\
+							-gamma [Min threshold for unsmoothed/smoothed (4)]\n", argv[0]);
+
+			exit(0);
+		}
+
+		//char* chip_reads_dir = argv[2];
+		//int l_fragment = atoi(argv[3]);
+		//char* mapability_signal_dir = argv[4];
+		//int l_read_mapability_signal = atoi(argv[5]);
+		//double base_scale_l_win = atof(argv[6]);
+		//double end_scale_l_win = atof(argv[7]); 
+		//double log_step = atof(argv[8]);
+		//int l_mapability_filtering_win = atoi(argv[9]);
+		//double max_normalized_mapability_signal = atof(argv[10]);
+
+		double base_scale_l_win = 100;
+		double end_scale_l_win = 1000000; 
+		double log_step = 1.5;
+		int l_p_val_norm_win = 1750;
+		int l_mapability_filtering_win = 2000;
+		double max_normalized_mapability_signal = 1.2;
+		double filtered_vs_non_filtered_max_scaler = 4;
+		//double signal_profile_scaler = 1;
+		int l_fragment = 200;
+
+		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
+		bool ret = false;
+		char* chip_reads_dir = cli->get_value_by_option("-chip", ret);
+		if(!ret)
+		{
+			fprintf(stderr, "Need chip.\n");
+			exit(0);
+		}
+
+		//ret = false;
+		//char* control_reads_dir = cli->get_value_by_option("-control", ret);
+		//if(!ret)
+		//{
+		//	fprintf(stderr, "Need control.\n");
+		//	exit(0);
+		//}
+
+		ret = false;
+		char* mapability_signal_dir = cli->get_value_by_option("-mapp", ret);
+		if(!ret)
+		{
+			mapability_signal_dir = NULL;
+		}
+
+		ret = false;
+		char* l_read_mapability_signal_str = cli->get_value_by_option("-l_mapp", ret);
+		int l_read_mapability_signal = 0;
+		if(ret)
+		{
+			l_read_mapability_signal = atoi(l_read_mapability_signal_str);
+		}
+		else if(mapability_signal_dir != NULL)
+		{
+			fprintf(stderr, "Could not read the mapability read length.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* l_frag_str = cli->get_value_by_option("-l_frag", ret);
+		if(ret)
+		{
+			l_fragment = atoi(l_frag_str);
+		}
+
+		ret = false;
+		char* base_scale_l_win_str = cli->get_value_by_option("-begin_l", ret);
+		if(ret)
+		{
+			base_scale_l_win = atof(base_scale_l_win_str);
+		}
+
+		ret = false;
+		char* end_scale_l_win_str = cli->get_value_by_option("-end_l", ret);
+		if(ret)
+		{
+			end_scale_l_win = atof(end_scale_l_win_str);
+		}
+
+		ret = false;
+		char* log_step_str = cli->get_value_by_option("-step", ret);
+		if(ret)
+		{
+			log_step = atof(log_step_str);
+		}
+
+		ret = false;
+		char* l_p_val_norm_win_str = cli->get_value_by_option("-l_p", ret);
+		if(ret)
+		{
+			l_p_val_norm_win = atoi(l_p_val_norm_win_str);
+		}
+
+		// Mapability correction window length.
+		ret = false;
+		char* l_mapability_filtering_win_str = cli->get_value_by_option("-l_c", ret);
+		if(ret)
+		{
+			l_mapability_filtering_win = atoi(l_mapability_filtering_win_str);
+		}
+
+		ret = false;
+		char* max_normalized_mapability_signal_str = cli->get_value_by_option("-mapp_thr", ret);
+		if(ret)
+		{
+			max_normalized_mapability_signal = atof(max_normalized_mapability_signal_str);
+		}
+
+		ret = false;
+		char* filtered_vs_non_filtered_max_scaler_str = cli->get_value_by_option("-gamma", ret);
+		if(ret)
+		{
+			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
+		}
+
+		write_decomposition_WAV(chip_reads_dir,
+			l_fragment,
+			mapability_signal_dir,
+			l_read_mapability_signal,
+			base_scale_l_win,
+			end_scale_l_win,
+			log_step,
+			l_mapability_filtering_win,
+			max_normalized_mapability_signal);
+	} // get_multiscale_music option.
 	else if(strcmp(argv[1], "-preprocess_FASTA") == 0)
 	{
 		if(argc != 4)

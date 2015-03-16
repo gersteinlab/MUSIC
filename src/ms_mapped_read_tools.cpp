@@ -874,8 +874,14 @@ void preprocess_bowtie_read_line(char* cur_line,
 	char strand_sign;
 	int chr_start_index;
 	char nucs[1000];
-	if(sscanf(cur_line, "%s %c %s %d %s", read_id, &strand_sign, chrom, &chr_start_index, nucs) == 4)
+	char strand_sign_str[100];
+	char chr_start_index_str[100];
+	//if(sscanf(cur_line, "%s %c %s %d %s", read_id, &strand_sign, chrom, &chr_start_index, nucs) == 4)
+	if(sscanf(cur_line, "%[^'\t'] %[^'\t'] %[^'\t'] %[^'\t'] %[^'\t']", read_id, strand_sign_str, chrom, chr_start_index_str, nucs) == 5)
     {
+		strand_sign = strand_sign_str[0];
+		chr_start_index = atoi(chr_start_index_str);
+
 		// Note that the indices in tagAlign file are 0 based, these must be translated to 1 based indices.
 		chr_start_index = translate_coord(chr_start_index, BOWTIE_COORDS::start_base, CODEBASE_COORDS::start_base);
 
