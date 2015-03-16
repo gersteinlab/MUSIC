@@ -10,6 +10,10 @@ LIB_DIR = src
 	@echo Compiling $@
 	@${CC} ${comp_flags} $< -o $@
 
+%.o: %.c
+	@echo Compiling $@
+	@${CC} ${comp_flags} $< -o $@
+
 objs = \
 ${LIB_DIR}/main.o \
 ${LIB_DIR}/ms_peak_calling_utils.o \
@@ -28,6 +32,7 @@ ${LIB_DIR}/ms_xlog_math.o \
 ${LIB_DIR}/ms_utils.o \
 ${LIB_DIR}/ms_ansi_cli.o \
 ${LIB_DIR}/ms_ansi_string.o \
+${LIB_DIR}/wavfile.o \
 
 MUSIC: ${objs}
 	@echo "Building..."
