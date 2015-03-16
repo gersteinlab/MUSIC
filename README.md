@@ -45,6 +45,8 @@ MUSIC -help
 </font>
 </div>
 
+Also there are several slides "Introduction to MUSIC.pptx", which may be helpful for using MUSIC.
+
 <h2>Usage</h2>
 MUSIC run starts with preprocessing the reads for ChIP and control samples (Note that we use samtools for converting BAM file to SAM files.):
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
