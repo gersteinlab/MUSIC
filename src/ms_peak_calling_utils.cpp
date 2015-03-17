@@ -720,15 +720,15 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 				vector<t_annot_region*>* rd_pruned_minima = prune_region_ends_per_window_average(per_scale_minima_regions->at(i_scale), signal_profile, l_profile, 
 					control_profile, l_control, 
 					rd_end_pruning_p_val, 1000*1000);
-
-if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
-				fprintf(stderr, "P-value minimization based end pruning.\n");
-
-				vector<t_annot_region*>* first_p_value_end_pruned_minima = prune_region_ends_per_p_value_minimization(rd_pruned_minima, signal_profile, l_profile, control_profile, l_control, l_fragment);
-				delete_annot_regions(rd_pruned_minima);
-
-				// Rename this.
-				rd_pruned_minima = first_p_value_end_pruned_minima;
+//
+//if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
+//				fprintf(stderr, "P-value minimization based end pruning.\n");
+//
+//				vector<t_annot_region*>* first_p_value_end_pruned_minima = prune_region_ends_per_p_value_minimization(rd_pruned_minima, signal_profile, l_profile, control_profile, l_control, l_fragment);
+//				delete_annot_regions(rd_pruned_minima);
+//
+//				// Rename this.
+//				rd_pruned_minima = first_p_value_end_pruned_minima;
 
 				// Get the grand total to fasten up the p-value based filtering of the minimas.
 				double max_grand_total_int = 0.0;
@@ -874,6 +874,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 
 				char cur_scaled_filtered_minima_fp[1000];
 				sprintf(cur_scaled_filtered_minima_fp, "SSERs_%s_scale_%d.bed", chr_ids->at(i_chr), (int)scales_per_i_scale->at(i_scale));
+				//dump_BED_w_p_values(p_value_end_pruned_minima, cur_scaled_filtered_minima_fp);
 				dump_BED(cur_scaled_filtered_minima_fp, p_value_end_pruned_minima);
 			} // base_scale check.
 		} // i_scale loop.
