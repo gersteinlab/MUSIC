@@ -402,7 +402,8 @@ double get_binomial_pvalue_per_region_neighborhood_window_control(double* signal
 		double cur_total_control_signal = 0;
 		for(int i = cur_start; i <= MIN(l_control, cur_start+(eff_control_region_end-eff_control_region_start)); i++)
 		{
-			cur_total_control_signal += floor(control_track_data[i]);
+			double cur_control_value = control_track_data[i];
+			cur_total_control_signal += cur_control_value;
 		} // i loop.
 
 		total_control_signal = MAX(total_control_signal, cur_total_control_signal);

@@ -721,12 +721,14 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 					control_profile, l_control, 
 					rd_end_pruning_p_val, 1000*1000);
 
-				//fprintf(stderr, "P-value minimization based end pruning.\n");
-				//vector<t_annot_region*>* p_value_end_pruned_minima = prune_region_ends_per_p_value_minimization(rd_pruned_minima, signal_profile, l_profile, control_profile, l_control, l_fragment);
-				//delete_annot_regions(rd_pruned_minima);
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
+				fprintf(stderr, "P-value minimization based end pruning.\n");
 
-				//// Rename this.
-				//rd_pruned_minima = p_value_end_pruned_minima;
+				vector<t_annot_region*>* first_p_value_end_pruned_minima = prune_region_ends_per_p_value_minimization(rd_pruned_minima, signal_profile, l_profile, control_profile, l_control, l_fragment);
+				delete_annot_regions(rd_pruned_minima);
+
+				// Rename this.
+				rd_pruned_minima = first_p_value_end_pruned_minima;
 
 				// Get the grand total to fasten up the p-value based filtering of the minimas.
 				double max_grand_total_int = 0.0;
@@ -759,18 +761,18 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 				for(int i_reg = 0; i_reg < (int)rd_pruned_minima->size(); i_reg++)
 				{
 					// Get the p-value for the current region.
-					double total_profile_signal = 0;
-					double total_control_signal = 0;
+					//double total_profile_signal = 0;
+					//double total_control_signal = 0;
 					double cur_region_log_p_val = 0.0;
 				
 					if(rd_pruned_minima->at(i_reg)->end < l_control && 
 						rd_pruned_minima->at(i_reg)->end < l_profile)
 					{
-						for(int i = rd_pruned_minima->at(i_reg)->start; i <= rd_pruned_minima->at(i_reg)->end; i++)
-						{
-							total_profile_signal += floor(signal_profile[i]);
-							total_control_signal += floor(control_profile[i]);	
-						} // i loop.
+						//for(int i = rd_pruned_minima->at(i_reg)->start; i <= rd_pruned_minima->at(i_reg)->end; i++)
+						//{
+						//	total_profile_signal += floor(signal_profile[i]);
+						//	total_control_signal += floor(control_profile[i]);	
+						//} // i loop.
 
 						cur_region_log_p_val = get_binomial_pvalue_per_region_neighborhood_window_control(signal_profile, control_profile, 
 																			rd_pruned_minima->at(i_reg)->start, rd_pruned_minima->at(i_reg)->end,
@@ -794,6 +796,21 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 
 				// Delete the buffered factorials.
 				delete [] log_factorials;
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
+{
+				// Dump the filtered minima.
+				char cur_scale_rd_pruned_p_vals_minima_fp[1000];
+				sprintf(cur_scale_rd_pruned_p_vals_minima_fp, "rd_pruned_minima_p_vals_scale_%d.bed", i_scale);
+				FILE* f_cur_scale_rd_pruned_p_vals_minima = open_f(cur_scale_rd_pruned_p_vals_minima_fp, "w");
+				for(int i_reg = 0; i_reg < (int)rd_pruned_minima->size(); i_reg++)
+				{
+					fprintf(f_cur_scale_rd_pruned_p_vals_minima, "%s\t%d\t%d\t%lf\t.\t+\n", 
+						chr_ids->at(i_chr), rd_pruned_minima->at(i_reg)->start, rd_pruned_minima->at(i_reg)->end,
+						rd_pruned_minima->at(i_reg)->significance_info->log_p_val);
+				} // i_reg loop.
+				fclose(f_cur_scale_rd_pruned_p_vals_minima);
+}
 
 				// Do the benj. hochberg correction on the p-values.
 				vector<t_annot_region*>* cur_scale_filtered_minima = new vector<t_annot_region*>();
@@ -1042,7 +1059,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 																			true, 
 																			l_p_val_norm_win,
 																			l_profile,
-																			l_control, 
+																			l_control,
 																			1);
 				}
 				else if(p_value_computation_type == P_VAL_PER_WIN_MAX_SIGNAL)
