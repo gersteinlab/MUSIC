@@ -112,7 +112,7 @@ This option estimates the false positive and negative rates using a large select
 
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <font face="courier">
-l_win: 1700	FNR: (FC:0.001) (p-val:0.001)	FPR: (FC:0.101) (p-val:0.055)	Sentitivity: 0.999
+<i>l_win: 1700	FNR: (FC:0.001) (p-val:0.001)	FPR: (FC:0.101) (p-val:0.055)	Sentitivity: 0.999</i>
 </font>
 </div>
 
@@ -127,9 +127,11 @@ positive rate (FPR) for FC and p-val values are below 10%.
 MUSIC generates the spectrum (using the scale lengths 100 base pairs to 1 megabase. The output is reported in a text file where each 
 row corresponds to a scale length. In each row, the coverage of the SSERs is given. For example: 
 
-...
-27	56815.13	111	11675769
-...
+<div style="padding:8px;background-color:#ddd;line-height:1.4;">
+<font face="courier">
+<i>27	56815.13	111	11675769</i>
+</font>
+</div>
 
 where 2nd column is the scale length and 4th column is the coverage of the ERs that are specific to that scale. It is best to plot the spectrum, i.e., the scale lengths versus 
 the fraction of coverage of the SSERs (4th column in the file), then match the spectrum with the studied HMs in the 
