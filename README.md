@@ -45,8 +45,6 @@ MUSIC -help
 </font>
 </div>
 
-Also there are several slides "Introduction to MUSIC.pptx", which may be helpful for using MUSIC.
-
 <h2>Usage</h2>
 MUSIC run starts with preprocessing the reads for ChIP and control samples (Note that we use samtools for converting BAM file to SAM files.):
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
@@ -110,19 +108,31 @@ There are two steps to parameter selection:
 1. Select a stringent p-value normalization window length: -get_per_win_p_vals_FC option. 
 </font>
 </div><br>
-This option estimates the false positive and negative rates using a large selection of p-value window lengths. It is best to choose the p-value window length that 
-keeps the estimated false positive and estimated false negative rates below 10%.
+This option estimates the false positive and negative rates using a large selection of p-value window lengths. The output is a file where each row look like this:
+
+...
+l_win: 1700	FNR: (FC:0.001) (p-val:0.001)	FPR: (FC:0.101) (p-val:0.055)	Sentitivity: 0.999
+...
+
+This option evaluates several windows lengths and estimates the false positive rate and false negative rates. Selecting the maximum window length (l_win) where false
+positive rate (FPR) for FC and p-val values are below 10%. 
 
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <font face="courier">
 2. Using the p-value normalization window length in step 1, generate the scale specific ER scale spectrum: -get_scale_spectrum option.
 </font>
 </div><br>
-MUSIC generates the spectrum (using the scale lengths 100 base pairs to 1 megabase, the scale selection in the arguments is ignored in a text file where each 
-row corresponds to a scale length. In each row, the coverage of the SSERs is given. It is best to plot the spectrum, i.e., the scale lengths versus the 
-fraction of coverage of the SSERs, then match the spectrum with the studied HMs in the manuscript. If the spectrum is very different from all of the 
-parametrized ChIP-Seq datasets, it is useful to generate the statistics on ER length distribution and distribution of ER-ER distances and use the procedure 
-described in the manuscript to select the scale levels.
+MUSIC generates the spectrum (using the scale lengths 100 base pairs to 1 megabase. The output is reported in a text file where each 
+row corresponds to a scale length. In each row, the coverage of the SSERs is given. For example: 
+
+...
+27	56815.13	111	11675769
+...
+
+where 2nd column is the scale length and 4th column is the coverage of the ERs that are specific to that scale. It is best to plot the spectrum, i.e., the scale lengths versus 
+the fraction of coverage of the SSERs (4th column in the file), then match the spectrum with the studied HMs in the 
+manuscript. If the spectrum is very different from all of the parametrized ChIP-Seq datasets, it is useful to generate the statistics on ER length distribution 
+and distribution of ER-ER distances and use the procedure described in the manuscript to select the scale levels.
 
 The other parameters (namely, gamma and sigma) do not depend on experimental variables and are optimized for minimizing overmerging and maximizing sensitivity.
 We suggest using the values specified in the manuscript, i.e., gamma=4, sigma=1.5.
@@ -159,6 +169,8 @@ Next, it is necessary to run these two scripts, in order:
 After the scripts are run, multi-mappability profile for each chromosome should be created with '.bin' extension. 'temp_map_reads.csh' is the most time consuming script that maps the fragments to the genome. 
 Each line in the script is a command that maps the reads to a chromosome that can be run in parallel on a cluster. It is important to make sure 'temp_map_reads.csh' 
 finishes before running 'temp_process_mapping.csh'.
+
+Your can also email me (arif.harmanci@yale.edu) to generate multimappability profiles for new species.
 
 <h2>Datasets</h2>
 The ENCODE datasets can be downloaded from <a href="http://hgdownload.cse.ucsc.edu/goldenPath/hg19/encodeDCC/">UCSC Genome Browser</a>. <br>
