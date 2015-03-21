@@ -110,9 +110,11 @@ There are two steps to parameter selection:
 </div><br>
 This option estimates the false positive and negative rates using a large selection of p-value window lengths. The output is a file where each row look like this:
 
-<br>
+<div style="padding:8px;background-color:#ddd;line-height:1.4;">
+<font face="courier">
 l_win: 1700	FNR: (FC:0.001) (p-val:0.001)	FPR: (FC:0.101) (p-val:0.055)	Sentitivity: 0.999
-</br>
+</font>
+</div>
 
 This option evaluates several windows lengths and estimates the false positive rate and false negative rates. Selecting the maximum window length (l_win) where false
 positive rate (FPR) for FC and p-val values are below 10%. 
