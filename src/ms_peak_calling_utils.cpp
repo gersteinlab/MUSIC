@@ -500,6 +500,7 @@ void get_peaks(char* chip_reads_dir,
 		double base_scale_l_win,
 		double end_scale_l_win,
 		double log_step,
+		int l_bin,
 		int l_p_val_norm_win,
 		int l_mapability_filtering_win,
 		double max_normalized_mapability_signal,
@@ -514,6 +515,7 @@ void get_peaks(char* chip_reads_dir,
 		bool do_post_peak_p_value_minimization,
 		double p_val_min_pruning_flip_prob,
 		bool find_mappable_troughs,
+		double trimmed_SSER_p_value_cutoff,
 		double q_value_cutoff)
 {
 	char test_op_bed_fp[1000];
@@ -522,6 +524,30 @@ void get_peaks(char* chip_reads_dir,
 	{
 		fprintf(stderr, "Found the output file %s, will not overwrite, exiting.\n", test_op_bed_fp);
 		exit(0);
+	}
+
+	// Select p-value normalization window length if it is not specified.
+	if(l_p_val_norm_win == 0)
+	{
+		double target_max_p_val_fc_fpr = 0.01;
+		double target_min_sensitivity = 0.96;
+
+		double absolute_max_fpr = 0.05;
+
+		// Follwoing are early stop conditions for parameter selection.
+		double min_sensitivity_per_satisfying_FPR = 0.99; // If sensitivity is greater than this while FPR is satisfied, we use this value.
+		double max_fpr_per_satisfying_sensitivity = 0.0; // If fpr is smaller than this value at satisfying sensitivity, we use this value.
+		//l_p_val_norm_win = select_l_p_per_stats_file("l_p_param_stats.txt", target_max_p_val_fc_fpr, target_min_sensitivity, 
+		//	min_sensitivity_per_satisfying_FPR);
+
+		l_p_val_norm_win = select_l_p_per_stats_file("l_p_param_stats.txt", 
+													target_max_p_val_fc_fpr, 
+													target_min_sensitivity,
+													min_sensitivity_per_satisfying_FPR, // When FPR is satisfied but sensitivity isnt.
+													max_fpr_per_satisfying_sensitivity, // When sensitivity is satisfied but FPR isnt.
+													absolute_max_fpr); // Maximum fpr that is allowed, whether the sensitivity is satisfied or not.
+
+		fprintf(stderr, "Selected p-value window length %d from file\n", l_p_val_norm_win);
 	}
 
 	// Load the chromosome ids; if there is a set of chromosomes to be used, use those.
@@ -561,7 +587,6 @@ void get_peaks(char* chip_reads_dir,
 		// Generate the current signal profile.
 		int l_buffer = 300*1000*1000;
 		int l_profile = 0;
-		//int l_read = l_read_mapability_signal;
 		double* buffered_signal_profile = new double[l_buffer + 2];	
 		char cur_chr_chip_reads_fp[1000];
 		sprintf(cur_chr_chip_reads_fp, "%s/%s_mapped_reads.txt", chip_reads_dir, chr_ids->at(i_chr));
@@ -630,7 +655,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		} // mapability based filtering check.
 		else
 		{
-			fprintf(stderr, "Could not find the mapability map profile, skipping it.");
+			fprintf(stderr, "Could not find the mapability map profile, skipping it.\n");
 			mapability_aware_smoothed_signal_profile = new double[l_profile + 2];
 			for(int i = 1; i <= l_profile; i++)
 			{
@@ -670,37 +695,96 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 {			
 		char mapable_aware_filtered_control_profile_fp[] = "mapability_aware_profile.bin";
 		dump_per_nucleotide_binary_profile(mapability_aware_smoothed_signal_profile, l_profile, mapable_aware_filtered_control_profile_fp);
-}
+}		
+
+		fprintf(stderr, "Base scale smoothing the signal profile.\n");
+		double* base_scale_smoothed_signal = median_filter_data(mapability_aware_smoothed_signal_profile, l_profile, base_scale_l_win, -1);
+		delete [] mapability_aware_smoothed_signal_profile;
+
+		// Bin the mappability corrected signal.
+		fprintf(stderr, "Binning corrected+base smoothed signal.\n");
+		//int l_bin = 5;
+		int n_bins = (l_profile / l_bin);
+		double* binned_mapability_aware_filtered_signal = new double[n_bins+10];
+		for(int i_bin = 0; i_bin < n_bins; i_bin++)
+		{
+			int bin_start = i_bin * l_bin;
+			int bin_end = (i_bin+1) * l_bin;
+			binned_mapability_aware_filtered_signal[i_bin] = 0;
+			for(int i = bin_start; i < bin_end; i++)
+			{
+				//binned_mapability_aware_filtered_signal[i_bin] += mapability_aware_smoothed_signal_profile[i];
+				binned_mapability_aware_filtered_signal[i_bin] += base_scale_smoothed_signal[i];
+			} // i loop.
+		}  // i_bin loop.
+		delete [] base_scale_smoothed_signal;
 
 		// Do multiscale decomposition and get the minima.
 		vector<double>* scales_per_i_scale = new vector<double>();
 		vector<vector<t_annot_region*>*>* per_scale_minima_regions = new vector<vector<t_annot_region*>*>();
 
+		// Update the window lengths.
+		double base_scale_l_win_per_bin = base_scale_l_win / l_bin; 
+		double end_scale_l_win_per_bin = end_scale_l_win / l_bin;
+
 		fprintf(stderr, "Computing MS decomposition.\n");
-		get_filtered_maxima_regions_multiscale_filtered_data(mapability_aware_smoothed_signal_profile, 
-			l_profile, 
-			base_scale_l_win, end_scale_l_win, log_step,
+		get_filtered_maxima_regions_multiscale_filtered_data(binned_mapability_aware_filtered_signal,
+			n_bins,
+			base_scale_l_win_per_bin, end_scale_l_win_per_bin, log_step,
 			scales_per_i_scale,
 			per_scale_minima_regions,
 			filtered_vs_non_filtered_max_scaler);
 
-		delete [] mapability_aware_smoothed_signal_profile;
+		// Now we can free the mapability ware signal and binned signal.
+		delete [] binned_mapability_aware_filtered_signal;
+
+		// Map the region back to window coordinates.
+		fprintf(stderr, "Mapping back the per scale feature regions.\n");
+		for(int i_scale = 0; i_scale < (int)per_scale_minima_regions->size(); i_scale++)
+		{
+			if(scales_per_i_scale->at(i_scale) < base_scale_l_win_per_bin)
+			{
+			}
+			else
+			{
+				for(int i_reg = 0; i_reg < (int)(per_scale_minima_regions->at(i_scale)->size()); i_reg++)
+				{
+					per_scale_minima_regions->at(i_scale)->at(i_reg)->start *= l_bin;
+					per_scale_minima_regions->at(i_scale)->at(i_reg)->end *= l_bin;
+				} // i_reg loop.
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+				fprintf(stderr, "%d pre-tuned peaks.\n", (int)(per_scale_minima_regions->at(i_scale)->size()));
+
+				// Remove the false positive minima positions based on thresholding.
+				tune_regions_per_window_average_at_boundaries(per_scale_minima_regions->at(i_scale), signal_profile, l_profile,
+																0.05, 1000*1000);
+
+				// Merge and replace the minima regions: Make sure that the merging is correctly performed here!
+				vector<t_annot_region*>* merged_tuned_per_scale_minima = merge_annot_regions(per_scale_minima_regions->at(i_scale), -1*l_bin*2);
+				delete_annot_regions(per_scale_minima_regions->at(i_scale));
+				per_scale_minima_regions->at(i_scale) = merged_tuned_per_scale_minima;
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+				fprintf(stderr, "%d post-tuned peaks.\n", (int)(per_scale_minima_regions->at(i_scale)->size()));
+			}
+		} // i_scale loop.
 
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 {
-			FILE* f_scales = open_f("per_scale_l_win.txt", "w");
-			for(int i_scale = 0; i_scale < (int)scales_per_i_scale->size(); i_scale++)
-			{
-				fprintf(f_scales, "%lf\n", scales_per_i_scale->at(i_scale));
-			}
-			fclose(f_scales);
+		FILE* f_scales = open_f("per_scale_l_win.txt", "w");
+		for(int i_scale = 0; i_scale < (int)scales_per_i_scale->size(); i_scale++)
+		{
+			fprintf(f_scales, "%lf\n", scales_per_i_scale->at(i_scale));
+		}
+		fclose(f_scales);
 }
 
 		// Filter the minima per p-value and fdr based end pruning.
 		vector<t_annot_region*>* all_filtered_pruned_minima_regions = new vector<t_annot_region*>();
 		for(int i_scale = 0; i_scale < (int)per_scale_minima_regions->size(); i_scale++)
 		{
-			if(scales_per_i_scale->at(i_scale) < base_scale_l_win)
+			if(scales_per_i_scale->at(i_scale) < base_scale_l_win_per_bin)
 			{
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 				fprintf(stderr, "Skipping filtering %d. scale.\n", i_scale);
@@ -710,33 +794,60 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 {
 				// Dump the filtered minima.
-				char cur_scaled_filtered_minima_fp[1000];
-				sprintf(cur_scaled_filtered_minima_fp, "all_minima_scale_%d.bed", i_scale);
-				dump_BED(cur_scaled_filtered_minima_fp, per_scale_minima_regions->at(i_scale));
+				char cur_scale_all_minima_fp[1000];
+				sprintf(cur_scale_all_minima_fp, "all_minima_scale_%d.bed", i_scale);
+				dump_BED(cur_scale_all_minima_fp, per_scale_minima_regions->at(i_scale));
 }
 
-				fprintf(stderr, "Filtering minima at %d. scale.\n", i_scale);
+				fprintf(stderr, "Filtering features at %d. scale.\n", i_scale);
 
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
+				fprintf(stderr, "RD based end pruning.\n");
+
+				// Second: Do RD based pruning of the ends.
 				vector<t_annot_region*>* rd_pruned_minima = prune_region_ends_per_window_average(per_scale_minima_regions->at(i_scale), signal_profile, l_profile, 
 					control_profile, l_control, 
 					rd_end_pruning_p_val, 1000*1000);
-//
-//if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
-//				fprintf(stderr, "P-value minimization based end pruning.\n");
-//
-//				vector<t_annot_region*>* first_p_value_end_pruned_minima = prune_region_ends_per_p_value_minimization(rd_pruned_minima, signal_profile, l_profile, control_profile, l_control, l_fragment);
-//				delete_annot_regions(rd_pruned_minima);
-//
-//				// Rename this.
-//				rd_pruned_minima = first_p_value_end_pruned_minima;
+				delete_annot_regions(per_scale_minima_regions->at(i_scale));
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
+{
+				// Dump the filtered minima.
+				char cur_scale_rd_pruned_p_vals_minima_fp[1000];
+				sprintf(cur_scale_rd_pruned_p_vals_minima_fp, "rd_pruned_minima_scale_%d.bed", i_scale);
+				dump_BED(cur_scale_rd_pruned_p_vals_minima_fp, rd_pruned_minima);
+}
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
+				fprintf(stderr, "P-value minimization based end pruning.\n");
+
+				vector<t_annot_region*>* p_value_minimization_end_pruned_minima = prune_region_ends_per_p_value_minimization(rd_pruned_minima, signal_profile, l_profile, control_profile, l_control, l_fragment);
+				delete_annot_regions(rd_pruned_minima);
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
+{
+				// Dump the filtered minima.
+				char cur_scale_rd_pruned_p_vals_minima_fp[1000];
+				sprintf(cur_scale_rd_pruned_p_vals_minima_fp, "p_value_min_end_pruned_minima_scale_%d.bed", i_scale);
+				dump_BED(cur_scale_rd_pruned_p_vals_minima_fp, p_value_minimization_end_pruned_minima);
+}
+
+				//delete_annot_regions(p_value_minimization_end_pruned_minima);
+
+				// Set the trimmed regions.
+				vector<t_annot_region*>* trimmed_minima_regions = p_value_minimization_end_pruned_minima;
+
+				// Dump the regions, if requested. Note that these form our main super ERs. These will be used for merging the ERs, not the
+				// Overlap of the ERs at the end. In other words, if there are significant regions in a super ER, it will be reported, otherwise
+				// Does this even make sense?
 
 				// Get the grand total to fasten up the p-value based filtering of the minimas.
 				double max_grand_total_int = 0.0;
-				for(int i_reg = 0; i_reg < (int)rd_pruned_minima->size(); i_reg++)
+				for(int i_reg = 0; i_reg < (int)trimmed_minima_regions->size(); i_reg++)
 				{
 					// Get the extrema signal values.
 					double current_grand_total = 0.0;
-					for(int i = rd_pruned_minima->at(i_reg)->start; i <= rd_pruned_minima->at(i_reg)->end; i++)
+					for(int i = trimmed_minima_regions->at(i_reg)->start; i <= trimmed_minima_regions->at(i_reg)->end; i++)
 					{
 						if(i < l_profile)
 						{
@@ -758,24 +869,16 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 				double* log_factorials = buffer_log_factorials((int)(max_grand_total_int+20));
 				
 				// Get the p-values and filter the peaks.
-				for(int i_reg = 0; i_reg < (int)rd_pruned_minima->size(); i_reg++)
+				for(int i_reg = 0; i_reg < (int)trimmed_minima_regions->size(); i_reg++)
 				{
 					// Get the p-value for the current region.
-					//double total_profile_signal = 0;
-					//double total_control_signal = 0;
 					double cur_region_log_p_val = 0.0;
 				
-					if(rd_pruned_minima->at(i_reg)->end < l_control && 
-						rd_pruned_minima->at(i_reg)->end < l_profile)
+					if(trimmed_minima_regions->at(i_reg)->end < l_control && 
+						trimmed_minima_regions->at(i_reg)->end < l_profile)
 					{
-						//for(int i = rd_pruned_minima->at(i_reg)->start; i <= rd_pruned_minima->at(i_reg)->end; i++)
-						//{
-						//	total_profile_signal += floor(signal_profile[i]);
-						//	total_control_signal += floor(control_profile[i]);	
-						//} // i loop.
-
 						cur_region_log_p_val = get_binomial_pvalue_per_region_neighborhood_window_control(signal_profile, control_profile, 
-																			rd_pruned_minima->at(i_reg)->start, rd_pruned_minima->at(i_reg)->end,
+																			trimmed_minima_regions->at(i_reg)->start, trimmed_minima_regions->at(i_reg)->end,
 																			log_factorials,
 																			l_fragment, 
 																			true, 
@@ -784,13 +887,13 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 																			l_control,
 																			1);
 
-						rd_pruned_minima->at(i_reg)->significance_info = new t_significance_info();
-						rd_pruned_minima->at(i_reg)->significance_info->log_p_val = cur_region_log_p_val;
+						trimmed_minima_regions->at(i_reg)->significance_info = new t_significance_info();
+						trimmed_minima_regions->at(i_reg)->significance_info->log_p_val = cur_region_log_p_val;
 					}
 					else
 					{
-						rd_pruned_minima->at(i_reg)->significance_info = new t_significance_info();
-						rd_pruned_minima->at(i_reg)->significance_info->log_p_val = xlog(1.0);
+						trimmed_minima_regions->at(i_reg)->significance_info = new t_significance_info();
+						trimmed_minima_regions->at(i_reg)->significance_info->log_p_val = xlog(1.0);
 					}
 				} // i_reg loop.
 
@@ -800,16 +903,16 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 {
 				// Dump the filtered minima.
-				char cur_scale_rd_pruned_p_vals_minima_fp[1000];
-				sprintf(cur_scale_rd_pruned_p_vals_minima_fp, "rd_pruned_minima_p_vals_scale_%d.bed", i_scale);
-				FILE* f_cur_scale_rd_pruned_p_vals_minima = open_f(cur_scale_rd_pruned_p_vals_minima_fp, "w");
-				for(int i_reg = 0; i_reg < (int)rd_pruned_minima->size(); i_reg++)
+				char cur_scale_end_trimmed_minima_p_vals_fp[1000];
+				sprintf(cur_scale_end_trimmed_minima_p_vals_fp, "end_trimmed_minima_p_vals_scale_%d.bed", i_scale);
+				FILE* f_cur_scale_end_trimmed_minima_p_vals = open_f(cur_scale_end_trimmed_minima_p_vals_fp, "w");
+				for(int i_reg = 0; i_reg < (int)trimmed_minima_regions->size(); i_reg++)
 				{
-					fprintf(f_cur_scale_rd_pruned_p_vals_minima, "%s\t%d\t%d\t%lf\t.\t+\n", 
-						chr_ids->at(i_chr), rd_pruned_minima->at(i_reg)->start, rd_pruned_minima->at(i_reg)->end,
-						rd_pruned_minima->at(i_reg)->significance_info->log_p_val);
+					fprintf(f_cur_scale_end_trimmed_minima_p_vals, "%s\t%d\t%d\t%lf\t.\t+\n", 
+						chr_ids->at(i_chr), trimmed_minima_regions->at(i_reg)->start, trimmed_minima_regions->at(i_reg)->end,
+						trimmed_minima_regions->at(i_reg)->significance_info->log_p_val);
 				} // i_reg loop.
-				fclose(f_cur_scale_rd_pruned_p_vals_minima);
+				fclose(f_cur_scale_end_trimmed_minima_p_vals);
 }
 
 				// Do the benj. hochberg correction on the p-values.
@@ -825,102 +928,93 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 				} // do_BJ_correction_on_minima
 
 				// Do the p-value filtering on the minima.
-				for(int i_reg = 0; i_reg < (int)rd_pruned_minima->size(); i_reg++)
+				for(int i_reg = 0; i_reg < (int)trimmed_minima_regions->size(); i_reg++)
 				{
 					// Check if this minima is significant.
-					bool is_minima_significant = (rd_pruned_minima->at(i_reg)->significance_info->log_p_val < xlog(0.05));;
+					bool is_minima_significant = (trimmed_minima_regions->at(i_reg)->significance_info->log_p_val < xlog(trimmed_SSER_p_value_cutoff));
 
 					// If BJ correction on the minima is requested, look at the q-values for filtering.
 					if(do_BJ_correction_on_minima)
 					{
-						is_minima_significant = (rd_pruned_minima->at(i_reg)->significance_info->log_q_val < xlog(0.05));
+						is_minima_significant = (trimmed_minima_regions->at(i_reg)->significance_info->log_q_val < xlog(trimmed_SSER_p_value_cutoff));
 					}
 
 					// Use only the regions that are significant.
 					if(is_minima_significant &&
-						(!do_filter_minima_per_length_min_base_scale_l_win || (rd_pruned_minima->at(i_reg)->end - rd_pruned_minima->at(i_reg)->start > base_scale_l_win)))
+						(!do_filter_minima_per_length_min_base_scale_l_win || (trimmed_minima_regions->at(i_reg)->end - trimmed_minima_regions->at(i_reg)->start > base_scale_l_win)))
 					{
-						cur_scale_filtered_minima->push_back(rd_pruned_minima->at(i_reg));
+						cur_scale_filtered_minima->push_back(duplicate_region(trimmed_minima_regions->at(i_reg)));
 					}
 					else
 					{
-						//delete rd_pruned_minima->at(i_reg)->significance_info;
-						//delete_annot_regions(rd_pruned_minima->at(i_reg));
 					}
-				} // i_reg loop.					
+				} // i_reg loop.	
 
-				// Do p-value minimization based end pruning.
-if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
-				fprintf(stderr, "P-value minimization based end pruning.\n");
-
-				vector<t_annot_region*>* p_value_end_pruned_minima = prune_region_ends_per_p_value_minimization(cur_scale_filtered_minima, signal_profile, l_profile, control_profile, l_control, l_fragment);
-
-				// Delete the rd pruned minima regions: cur_scale_filtered_minima is a subset of rd_pruned_minima and is not copied, do not delete it.
-				for(int i_reg = 0; i_reg < (int)rd_pruned_minima->size(); i_reg++)
+				// Delete the trimmed minima regions.
+				for(int i_reg = 0; i_reg < (int)trimmed_minima_regions->size(); i_reg++)
 				{
-					delete rd_pruned_minima->at(i_reg)->significance_info;
+					delete trimmed_minima_regions->at(i_reg)->significance_info;
 				} // i_reg loop.
-				delete_annot_regions(rd_pruned_minima);
+				delete_annot_regions(trimmed_minima_regions);
 
+				// Insert the merged regions w 
 				all_filtered_pruned_minima_regions->insert(all_filtered_pruned_minima_regions->end(), 
-					p_value_end_pruned_minima->begin(), p_value_end_pruned_minima->end());
+															cur_scale_filtered_minima->begin(), 
+															cur_scale_filtered_minima->end());
 
 				// Replace the chromosome ids for each region.
-				for(int i_reg = 0; i_reg < (int)p_value_end_pruned_minima->size(); i_reg++)
+				for(int i_reg = 0; i_reg < (int)cur_scale_filtered_minima->size(); i_reg++)
 				{
-					delete [] p_value_end_pruned_minima->at(i_reg)->chrom;
-					p_value_end_pruned_minima->at(i_reg)->chrom = t_string::copy_me_str(chr_ids->at(i_chr));
+					delete [] cur_scale_filtered_minima->at(i_reg)->chrom;
+					cur_scale_filtered_minima->at(i_reg)->chrom = t_string::copy_me_str(chr_ids->at(i_chr));
 				} // i_reg loop.
 
 				char cur_scaled_filtered_minima_fp[1000];
-				sprintf(cur_scaled_filtered_minima_fp, "SSERs_%s_scale_%d.bed", chr_ids->at(i_chr), (int)scales_per_i_scale->at(i_scale));
+				sprintf(cur_scaled_filtered_minima_fp, "SSERs_%s_scale_%d.bed", chr_ids->at(i_chr), (int)(scales_per_i_scale->at(i_scale)*l_bin));
 				//dump_BED_w_p_values(p_value_end_pruned_minima, cur_scaled_filtered_minima_fp);
-				dump_BED(cur_scaled_filtered_minima_fp, p_value_end_pruned_minima);
+				dump_BED(cur_scaled_filtered_minima_fp, cur_scale_filtered_minima);
 			} // base_scale check.
 		} // i_scale loop.
 
 		// Free the memory for the per scale minima regions.
-		for(int i_scale = 0; i_scale < (int)per_scale_minima_regions->size(); i_scale++)
-		{
-			if(per_scale_minima_regions->at(i_scale) != NULL)
-			{
-				delete_annot_regions(per_scale_minima_regions->at(i_scale));
-			}
-		} // i_scale loop.
+		delete per_scale_minima_regions;
 
 		// Now merge the filtered/pruned minima regions.
 		vector<t_annot_region*>* filtered_pruned_merged_minima_regions = merge_annot_regions(all_filtered_pruned_minima_regions, 1);
 
-		// Do RD based and p-value based end pruning to the final set of peaks.
+		// Free the memort for all the filtered minima regions.
+		delete_annot_regions(all_filtered_pruned_minima_regions);
+
+		// Do RD based and p-value based end pruning to the final set of peaks: Note that this may be skipped for making algorithm faster as this 
+		// should not help with anything. Should test this.
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		fprintf(stderr, "RD based end pruning.\n");
 
-		vector<t_annot_region*>* rd_end_pruned_minima = prune_region_ends_per_window_average(filtered_pruned_merged_minima_regions, signal_profile, l_profile, 
-																								control_profile, l_control,
-																								rd_end_pruning_p_val, 1000*1000);
+		vector<t_annot_region*>* rd_pruned_filtered_pruned_merged_minima_regions = prune_region_ends_per_window_average(filtered_pruned_merged_minima_regions, signal_profile, l_profile, 
+																														control_profile, l_control,
+																														rd_end_pruning_p_val, 1000*1000);
 
 		//dump_BED("rd_end_pruned_minima.bed", rd_end_pruned_minima);
 		delete_annot_regions(filtered_pruned_merged_minima_regions);
 
 		// Do p-value minimization based end pruning.
-		vector<t_annot_region*>* p_value_end_pruned_minima = rd_end_pruned_minima;
+		vector<t_annot_region*>* p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions = rd_pruned_filtered_pruned_merged_minima_regions;
 		if(do_post_peak_p_value_minimization)
 		{
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 			fprintf(stderr, "P-value minimization based end pruning.\n");
 
-			//p_value_end_pruned_minima = prune_region_ends_per_p_value_minimization(rd_end_pruned_minima, signal_profile, l_profile, control_profile, l_control, l_fragment);
-			p_value_end_pruned_minima = prune_region_ends_per_modified_binomial_p_value_minimization(rd_end_pruned_minima, 
-																									p_val_min_pruning_flip_prob,
-																									signal_profile, l_profile, control_profile, l_control, l_fragment);
-			delete_annot_regions(rd_end_pruned_minima);
+			p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions = prune_region_ends_per_modified_binomial_p_value_minimization(rd_pruned_filtered_pruned_merged_minima_regions, 
+																																			p_val_min_pruning_flip_prob,
+																																			signal_profile, l_profile, control_profile, l_control, l_fragment);
+			delete_annot_regions(rd_pruned_filtered_pruned_merged_minima_regions);
 		}
 
 		// Replace the chromosome id's; necessary before strand signal based filtering.
-		for(int i_reg = 0; i_reg < (int)p_value_end_pruned_minima->size(); i_reg++)
+		for(int i_reg = 0; i_reg < (int)p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions->size(); i_reg++)
 		{
-			delete [] p_value_end_pruned_minima->at(i_reg)->chrom;
-			p_value_end_pruned_minima->at(i_reg)->chrom = t_string::copy_me_str(chr_ids->at(i_chr));
+			delete [] p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions->at(i_reg)->chrom;
+			p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions->at(i_reg)->chrom = t_string::copy_me_str(chr_ids->at(i_chr));
 
 			// Set the peak info for the current region.
 			t_ER_info* cur_peak_info = new t_ER_info();
@@ -928,45 +1022,45 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 			cur_peak_info->rev_strand_mass_of_center = 0;
 			cur_peak_info->total_fore_mass = 0;
 			cur_peak_info->total_rev_mass = 0;
-			p_value_end_pruned_minima->at(i_reg)->data = cur_peak_info;
+			p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions->at(i_reg)->data = cur_peak_info;
 		} // i_reg loop.
 
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		fprintf(stderr, "Filtering peaks with respect to strand signal evenness.\n");
 
 		// Set the per filter information.
-		set_per_strand_info_per_peaks(p_value_end_pruned_minima,
-				chr_ids->at(i_chr),
-				chip_reads_dir,
-				l_fragment);
+		set_per_strand_info_per_peaks(p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions,
+									chr_ids->at(i_chr),
+									chip_reads_dir,
+									l_fragment);
 
 		// Filter the per strand information.
 		vector<t_annot_region*>* strand_filtered_peaks = new vector<t_annot_region*>();
-		vector<t_annot_region*>* removed_peaks = new vector<t_annot_region*>();
-		for(int i_reg = 0; i_reg < (int)p_value_end_pruned_minima->size(); i_reg++)
+		for(int i_reg = 0; i_reg < (int)p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions->size(); i_reg++)
 		{
-			t_ER_info* cur_peak_info = (t_ER_info*)(p_value_end_pruned_minima->at(i_reg)->data);
+			t_ER_info* cur_peak_info = (t_ER_info*)(p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions->at(i_reg)->data);
 
 			if(cur_peak_info->total_fore_mass > 0 &&
 				cur_peak_info->total_rev_mass > 0 &&
 				cur_peak_info->total_fore_mass / cur_peak_info->total_rev_mass > min_per_strand_evennes_fraction &&
 				cur_peak_info->total_rev_mass / cur_peak_info->total_fore_mass > min_per_strand_evennes_fraction)
 			{
-				strand_filtered_peaks->push_back(p_value_end_pruned_minima->at(i_reg));
+				// Make sure that we copy the peak info.
+				t_annot_region* passed_region = duplicate_region(p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions->at(i_reg));
+				passed_region->data = cur_peak_info;
+				strand_filtered_peaks->push_back(passed_region);
 			}
 			else
 			{
-				// Delete the peak info.
+				// Delete the peak info, this is the only info we need to delete.
 				delete cur_peak_info;
-				removed_peaks->push_back(p_value_end_pruned_minima->at(i_reg));
 			}
 		} // i_reg loop.
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
-		fprintf(stderr, "%s: %d peaks passed. (%d)\n", chr_ids->at(i_chr), (int)strand_filtered_peaks->size(), (int)p_value_end_pruned_minima->size());
+		fprintf(stderr, "%s: %d peaks passed. (%d)\n", chr_ids->at(i_chr), (int)strand_filtered_peaks->size(), (int)p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions->size());
 
 		// Free unused peak memory.
-		delete_annot_regions(removed_peaks);
-		delete(p_value_end_pruned_minima);
+		delete_annot_regions(p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions);
 
 		// Compute the p-values for each region.
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
@@ -1027,11 +1121,11 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 						cur_plateau_start = i;
 						in_plateau = true;
 					}
-					
-					/*if(cur_peak_info->max_chip_mass < floor(signal_profile[i]))
+
+					if(cur_peak_info->max_chip_mass < floor(signal_profile[i]))
 					{
 						cur_peak_info->max_chip_mass = floor(signal_profile[i]);
-					}*/
+					}
 
 					if(cur_peak_info->max_control_mass < floor(control_profile[i]))
 					{
@@ -1179,7 +1273,7 @@ Find the maxima, sort them, find the smallest positions in between the top maxim
 */
 int get_trough_posn_per_ER(double* signal_profile, int l_profile, 
 							double* multi_mapp_signal, int l_multi_map_signal, double max_multi_mapp_val,
-							int ER_start, int ER_end, 
+							int ER_start, int ER_end,
 							int l_trough_win)
 {
 	//vector<int>* maxima_posns = new vector<int>();
@@ -1446,7 +1540,6 @@ vector<t_annot_region*>* set_per_strand_info_per_peaks(vector<t_annot_region*>* 
 
 	// Process each chromosome.
 	vector<t_annot_region*>* filtered_peaks = new vector<t_annot_region*>();
-	//vector<t_annot_region*>* removed_peaks = new vector<t_annot_region*>();
 	for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
 	{
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)

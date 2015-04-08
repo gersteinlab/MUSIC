@@ -354,7 +354,7 @@ vector<double*>* multiscale_median_filter_data(double* track_data,
 		else
 		{
 if(__DUMP_FILTER_MSGS__)
-			fprintf(stderr, "Processing scale %lf (%lf)\n", scale, scale_end);
+			fprintf(stderr, "Processing scale %.2f (%.2f)\n", scale, scale_end);
 
 			// Get the filter for the current scale: The gaussian filter.
 			int int_scale = (int)(scale);
@@ -733,15 +733,18 @@ if(__DUMP_FILTER_MSGS__)
 }
 	
 void get_filtered_maxima_regions_multiscale_filtered_data(double* track_data, 
-	int l_track_data, 
-	double scale_start, double scale_end, double log_scale_step, 
-	vector<double>* scales_per_i_scale,
-	vector<vector<t_annot_region*>*>* per_scale_minima_regions,
-	double min_allowed_filtered_value_scale)
+														int l_track_data, 
+														double scale_start, double scale_end, double log_scale_step, 
+														vector<double>* scales_per_i_scale,
+														vector<vector<t_annot_region*>*>* per_scale_minima_regions,
+														double min_allowed_filtered_value_scale)
 {
 	// Start from the first scale, go over all the scales and filter the data.
 	double scale = 1.0 / log_scale_step;
 	int i_scale = 0;
+
+	// Define where which quantile we set as the signal.
+	double quantile = 0.5;
 
 	FILE* f_feature_signal_vals = NULL;
 
@@ -765,7 +768,7 @@ if(__DUMP_FILTER_MSGS__)
 		{
 //if(__DUMP_FILTER_MSGS__)
 //{
-			fprintf(stderr, "Processing scale %lf (%lf)\n", scale, scale_end);
+			fprintf(stderr, "Processing scale %.2f (%.2f)\n", scale, scale_end);
 //}
 
 			// Get the filter for the current scale: The gaussian filter.
@@ -795,8 +798,8 @@ if(__DUMP_FILTER_MSGS__)
 			} // i_sig loop.
 
 			// Make sure that this is the maximum.
-			MAX_VAL += 1000;
-			MIN_VAL -= 1000;
+			MAX_VAL += 100;
+			MIN_VAL -= 100;
 		
 			// Initialize the current pdf.
 			int* cur_win_pdf = NULL;
@@ -892,8 +895,7 @@ if(__DUMP_FILTER_MSGS__)
 				{
 					n_total += cur_win_pdf[i];
 
-					//if(n_total > l_averaging_win/2)
-					if(n_total > ((cur_avg_end - cur_avg_start + 1))/2)
+					if(n_total > (cur_avg_end - cur_avg_start + 1)*quantile)
 					{
 						// We found the median, can break out of the loop.
 						cur_win_median = i;

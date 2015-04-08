@@ -23,6 +23,9 @@ bool get_random_counting_indices(vector<vector<int>*>* random_counting_indices_l
 								int n_indices_2_generate,
 								t_rng* rng);
 
+void dump_binomial_p_vals(int max_grand_total, double* log_factorials);
+double** buffer_binomial_pvalues(int max_grand_total, double* log_factorials, int BINOMIAL_P_VAL_BIN_SIZE);
+void delete_buffered_binomial_pvalues(double** binomial_p_vals, int max_grand_total, int BINOMIAL_P_VAL_BIN_SIZE);
 double* buffer_log_factorials(int n);
 
 #endif // __PERMUTATIONS__

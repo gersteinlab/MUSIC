@@ -101,6 +101,76 @@ bool get_next_counting_indices(vector<int>* counting_indices,
 	}
 }
 
+void dump_binomial_p_vals(int max_grand_total, double* log_factorials)
+{
+	for(int cur_grand_total = 0; cur_grand_total <= max_grand_total; cur_grand_total++)
+	{
+		char cur_p_vals_fp[1000];
+		sprintf(cur_p_vals_fp, "p_vals_%d.txt", cur_grand_total);
+		FILE* f_cur_p_vals = fopen(cur_p_vals_fp, "w");
+
+		double log_flip = log(.5);
+		double cur_p_val = xlog(0.0);
+		for(int cur_sig = 0; cur_sig <= cur_grand_total; cur_sig++)
+		{
+			double log_cur_half_pow = log_flip * cur_grand_total;
+			double log_cur_perm = 0.0; // = xlog(1.0).
+
+			// Compute the current permutation.
+			log_cur_perm = xlog_div(log_factorials[cur_grand_total], xlog_mul(log_factorials[cur_sig], log_factorials[cur_grand_total-cur_sig]));
+			cur_p_val = xlog_sum(cur_p_val, xlog_mul(log_cur_perm, log_cur_half_pow));
+
+			// Also get the normal approximation.
+
+
+			fprintf(f_cur_p_vals, "%d\t%lf\n", cur_sig, cur_p_val);
+		} // i loop.
+
+		fclose(f_cur_p_vals);
+	} // grand_total
+}
+
+double** buffer_binomial_pvalues(int max_grand_total, double* log_factorials, int BINOMIAL_P_VAL_BIN_SIZE)
+{
+	double** binomial_vals = new double*[max_grand_total + 2];
+
+	for(int cur_grand_total = 0; cur_grand_total <= max_grand_total; cur_grand_total++)
+	{
+		binomial_vals[cur_grand_total] = new double[cur_grand_total / BINOMIAL_P_VAL_BIN_SIZE + 10];
+
+		double log_flip = log(.5);
+		double cur_p_val = xlog(0.0);
+		for(int cur_sig = 0; cur_sig <= cur_grand_total; cur_sig++)
+		{
+			double log_cur_half_pow = log_flip * cur_grand_total;
+			double log_cur_perm = 0.0; // = xlog(1.0).
+
+			// Compute the current permutation.
+			log_cur_perm = xlog_div(log_factorials[cur_grand_total], xlog_mul(log_factorials[cur_sig], log_factorials[cur_grand_total-cur_sig]));
+			cur_p_val = xlog_sum(cur_p_val, xlog_mul(log_cur_perm, log_cur_half_pow));
+
+			// Add this value in case.
+			if(cur_sig % BINOMIAL_P_VAL_BIN_SIZE == 0)
+			{
+				binomial_vals[cur_grand_total][cur_sig / BINOMIAL_P_VAL_BIN_SIZE] = cur_p_val;
+			}
+		} // i loop.
+	} // grand_total
+
+	return(binomial_vals);
+}
+
+void delete_buffered_binomial_pvalues(double** binomial_p_vals, int max_grand_total, int BINOMIAL_P_VAL_BIN_SIZE)
+{
+	for(int cur_grand_total = 0; cur_grand_total <= max_grand_total; cur_grand_total++)
+	{
+		//binomial_p_vals[cur_grand_total] = new double[cur_grand_total / BINOMIAL_P_VAL_BIN_SIZE + 10];
+		delete [] binomial_p_vals[cur_grand_total];
+	} // cur_grand_total loop.
+
+	delete [] binomial_p_vals;
+}
+
 double* buffer_log_factorials(int n)
 {
 	double* factorials = new double[n+2];

@@ -8,12 +8,29 @@ struct t_annot_region;
 #define  __POISSON_BCKGRND__
 #undef __GEOMETRIC_BCKGRND__
 
+void tune_regions_per_window_average_at_boundaries(vector<t_annot_region*>* regions, double* signal_profile, int l_profile,
+	double fdr, int l_win);
+
+int select_l_p_per_stats_file(const char* l_p_param_stats_fp, double target_max_p_val_fc_fpr, double target_min_sensitivity,
+	double max_sensitivity_per_satisfying_FPR);
+
+int select_l_p_per_stats_file(const char* l_p_param_stats_fp, 
+								double max_target_fpr, double min_target_sensitivity,
+								double min_sensitivity_per_satisfying_fpr, 
+								double max_fpr_per_satisfying_sensitivity,
+								double absolute_max_fpr);
+
 vector<t_annot_region*>* prune_region_ends_per_lost_peak_mass(vector<t_annot_region*>* regions, double* signal_profile, int l_profile, double* control_profile, int l_control);
 vector<t_annot_region*>* prune_region_ends_per_signal_distribution(vector<t_annot_region*>* regions, double* signal_profile, int l_profile, double* control_profile, int l_control);
 vector<t_annot_region*>* prune_region_ends_per_window_average(vector<t_annot_region*>* regions, double* signal_profile, int l_profile, double* control_profile, int l_control,
 	double fdr, int l_win);
 vector<t_annot_region*>* prune_region_ends_per_p_value_minimization(vector<t_annot_region*>* regions, double* signal_profile, int l_profile, double* control_profile, int l_control,
 	int l_fragment);
+
+vector<t_annot_region*>* prune_region_ends_per_p_value_minimization_buffered_binomial_p_vals(vector<t_annot_region*>* regions, 
+																							double* signal_profile, int l_profile, 
+																							double* control_profile, int l_control,
+																							int l_fragment);
 
 vector<t_annot_region*>* prune_region_ends_per_modified_binomial_p_value_minimization(vector<t_annot_region*>* regions, 
 	double flip_prob,

@@ -110,14 +110,16 @@ There are two steps to parameter selection:
 </div><br>
 This option estimates the false positive and negative rates using a large selection of p-value window lengths. The output is a file where each row look like this:
 
-<div style="padding:8px;background-color:#ddd;line-height:1.4;">
-<font face="courier">
-<i>l_win: 1700	FNR: (FC:0.001) (p-val:0.001)	FPR: (FC:0.101) (p-val:0.055)	Sentitivity: 0.999</i>
-</font>
-</div>
+...
+l_win: 1700	FNR: (FC:0.001) (p-val:0.001)	FPR: (FC:0.010) (p-val:0.005)	Sentitivity: 0.999
+...
 
 This option evaluates several windows lengths and estimates the false positive rate and false negative rates. Selecting the maximum window length (l_win) where false
-positive rate (FPR) for FC and p-val values are below 10%. 
+positive rate (FPR) for FC and p-val values are below 1%. 
+
+Note that you can skip going through the file manually if you specify p-value normalization window length as 0 ('-l_p 0') in the peak calling step; which tells MUSIC to select p-value normalization window length 
+from the above file automatically. For this to work, make sure that you do not delete any files after running -get_per_win_p_vals_FC option, otherwise MUSIC will complain that it cannot find 
+the file. See below for complete automation (of p-value normalization window length selection) with default parameters. 
 
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <font face="courier">
@@ -127,11 +129,9 @@ positive rate (FPR) for FC and p-val values are below 10%.
 MUSIC generates the spectrum (using the scale lengths 100 base pairs to 1 megabase. The output is reported in a text file where each 
 row corresponds to a scale length. In each row, the coverage of the SSERs is given. For example: 
 
-<div style="padding:8px;background-color:#ddd;line-height:1.4;">
-<font face="courier">
-<i>27	56815.13	111	11675769</i>
-</font>
-</div>
+...
+27	56815.13	111	11675769
+...
 
 where 2nd column is the scale length and 4th column is the coverage of the ERs that are specific to that scale. It is best to plot the spectrum, i.e., the scale lengths versus 
 the fraction of coverage of the SSERs (4th column in the file), then match the spectrum with the studied HMs in the 
@@ -140,6 +140,23 @@ and distribution of ER-ER distances and use the procedure described in the manus
 
 The other parameters (namely, gamma and sigma) do not depend on experimental variables and are optimized for minimizing overmerging and maximizing sensitivity.
 We suggest using the values specified in the manuscript, i.e., gamma=4, sigma=1.5.
+
+<h2>Running MUSIC with Default Parameters and Automatic Selection of l_p Parameter: </h2>
+We just added a new script run_MUSIC.csh. This script automates the parameter selection for -l_p option. This script automates running MUSIC with default parameters. It simply calls MUSIC 
+with above parameters in order. Here is how this script can be used: 
+<div style="padding:8px;background-color:#ddd;line-height:1.4;">
+<font face="courier">
+read_fp="wgEncodeBroadHistoneGm12878H3k27me3StdAlnRep1.bam";
+mappability_map="mappability/36bp";
+input_processed_dir="input/pruned";
+mkdir preprocessed sorted pruned
+run_MUSIC.csh -preprocess ${read_fp} preprocessed
+run_MUSIC.csh -remove_duplicates preprocessed sorted pruned
+run_MUSIC.csh -get_optimal_broad_ERs pruned ${input_processed_dir} ${mappability_map}
+</font>
+</div><br>
+Make sure that run_MUSIC.csh is included in PATH. Currently only BAM files are supported in preprocessing. We will add more file types, soon. Note that it is necessary to install samtools for making 
+sure this runs smoothly. The above code calls the ER's using the optimal l_p selection with the default parameters.
 
 <h2>Multi-Mappability Signals</h2>
 Using Mappability correction increases the accuracy of MUSIC. You can download the multi-mappability signals for several common read lengths <a href="http://archive.gersteinlab.org/proj/MUSIC/multimap_profiles/">here</a>.

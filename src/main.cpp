@@ -53,13 +53,18 @@ Recreative Options (Fun with ChIP-Seq):\n\
 	-begin_l [First scale smoothing window length (1000)]\n\
 	-end_l [Last scale smoothing window length (16000)]\n\
 	-step [Multiplicative window length step (1.5)]\n\
+	-l_bin [Bin size in nucleotides (5)]\n\
 	-l_mapp [Read length of multi-mapability profiles]\n\
 	-mapp_thr [Multi-mapability signal threshold used in correction (1.2)]\n\
 	-l_frag [Fragment length (200)]\n\
 	-l_c [Mapability correction window length (2000)]\n\
 	-l_p [Normalization window length for p-value computation]\n\
 	-gamma [Min threshold for unsmoothed/smoothed (4)]\n\
-	-q_val [Maximum q-value for the reported ERs]\n");
+	-q_val [Maximum q-value for the reported ERs]\n\
+Parameters for -get_per_win_p_vals_vs_FC:\n\
+	-l_win_min [Minimum p-val window length (100)]\n\
+	-l_win_max [Maximum p-val window length (5000)]\n\
+	-l_win_step [p-val window length step (250)]\n");
 }
 
 int main(int argc, char* argv[])
@@ -70,6 +75,8 @@ int main(int argc, char* argv[])
 		exit(0);
 	}
 	
+	clock_t start_c = clock();
+
 	/************************************************************************
 	TODO: Combine all the preprocessing (preprocess, sort, dedup) under 
 	-preprocess option.
@@ -94,7 +101,7 @@ int main(int argc, char* argv[])
 		char* mapped_reads_fp = argv[3];
 		char* op_dir = argv[4];
 
-		printf("Preprocessing:\ninput format: %s\nchip_seq_eland_op_fp: %s\nparsed_reads_op_dir: %s\n", 
+		printf("Preprocessing:\nInput Format: %s\nChIP-Seq input file path: %s\nParsed Reads Output Directory: %s\n", 
 			format_str, mapped_reads_fp, op_dir);
 
 		// Do not do validation while dumping the binary read files.
@@ -133,6 +140,13 @@ int main(int argc, char* argv[])
 			printf("Unknown format for the mapped read file name, use SAM/ELAND/bowtie/tagAlign.\n");
 			exit(0);
 		}
+
+		// Dump the run length.
+		FILE* f_beacon = open_f("beacon.log", "a");
+		clock_t end_c = clock();
+		fprintf(f_beacon, "MUSIC finished preprocessing %s formatted reads in %d seconds.\n", format_str, (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fprintf(stderr, "MUSIC finished preprocessing %s formatted reads in %d seconds.\n", format_str, (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fclose(f_beacon);
 	} // -preprocess option.
 	else if(strcmp(argv[1], "-sort_reads") == 0)
 	{
@@ -276,6 +290,12 @@ if(__DUMP_PEAK_MESSAGES__)
 			delete bucket_starts;
 			delete bucket_sizes;
 		} // i_chr loop.
+
+		FILE* f_beacon = open_f("beacon.log", "a");
+		clock_t end_c = clock();
+		fprintf(f_beacon, "MUSIC finished sorting reads in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fprintf(stderr, "MUSIC finished sorting reads in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fclose(f_beacon);
 	} // -sort_reads
 	else if(strcmp(argv[1], "-remove_duplicates") == 0)
 	{
@@ -364,12 +384,21 @@ if(__DUMP_PEAK_MESSAGES__)
 				}
 
 				n_processed_reads++;
+
+				// Free line memory.
+				delete [] cur_line;
 			} // file reading loop.
 			fclose(f_cur_chr_reads);
 			fclose(f_cur_chr_pruned_reads);
 
 			fprintf(stderr, "Processed %d reads, pruned to %d reads.\n", n_processed_reads, n_pruned_reads);
 		} // i_chr loop.
+
+		FILE* f_beacon = open_f("beacon.log", "a");
+		clock_t end_c = clock();
+		fprintf(f_beacon, "MUSIC finished duplicate removal in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fprintf(stderr, "MUSIC finished duplicate removal in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fclose(f_beacon);
 	} // -remove_duplicates
 	else if(strcmp(argv[1], "-count_preprocessed_reads") == 0)
 	{
@@ -920,6 +949,12 @@ if(__DUMP_PEAK_MESSAGES__)
 			log_step,
 			l_mapability_filtering_win,
 			max_normalized_mapability_signal);
+
+		FILE* f_beacon = open_f("beacon.log", "a");
+		clock_t end_c = clock();
+		fprintf(f_beacon, "MUSIC finished writing decomposition in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fprintf(stderr, "MUSIC finished writing decomposition in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fclose(f_beacon);
 	} // -write_BedGraph_per_preprocessed_reads
 	else if(strcmp(argv[1], "-get_multiscale_broad_ERs") == 0)
 	{
@@ -951,6 +986,7 @@ if(__DUMP_PEAK_MESSAGES__)
 		double filtered_vs_non_filtered_max_scaler = 4;
 		double signal_profile_scaler = 1;
 		int l_fragment = 200;
+		int l_bin = 5;
 
 		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
 		bool ret = false;
@@ -967,6 +1003,13 @@ if(__DUMP_PEAK_MESSAGES__)
 		{
 			fprintf(stderr, "Need control.\n");
 			exit(0);
+		}
+
+		ret = false;
+		char* l_bin_str = cli->get_value_by_option("-l_bin", ret);
+		if(ret)
+		{
+			l_bin = atoi(l_bin_str);
 		}
 
 		ret = false;
@@ -1063,6 +1106,7 @@ if(__DUMP_PEAK_MESSAGES__)
 			base_scale_l_win,
 			end_scale_l_win,
 			log_step,
+			l_bin,
 			l_p_val_norm_win,
 			l_mapability_filtering_win,
 			max_normalized_mapability_signal,
@@ -1077,7 +1121,14 @@ if(__DUMP_PEAK_MESSAGES__)
 			false,	// do_post_peak_p_value_minimization (p-val min)
 			.5,		// The flip probability.
 			false,
+			q_val_threshold,
 			q_val_threshold); 
+
+		FILE* f_beacon = open_f("beacon.log", "a");
+		clock_t end_c = clock();
+		fprintf(f_beacon, "MUSIC finished broad peak calling in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fprintf(stderr, "MUSIC finished broad peak calling in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fclose(f_beacon);
 	} // -get_multiscale_broad_ERs
 	else if(strcmp(argv[1], "-get_multiscale_punctate_ERs") == 0)
 	{
@@ -1109,6 +1160,7 @@ if(__DUMP_PEAK_MESSAGES__)
 		double filtered_vs_non_filtered_max_scaler = 4;
 		double signal_profile_scaler = 1;
 		int l_fragment = 200;
+		int l_bin = 1;
 
 		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
 		bool ret = false;
@@ -1125,6 +1177,13 @@ if(__DUMP_PEAK_MESSAGES__)
 		{
 			fprintf(stderr, "Need control.\n");
 			exit(0);
+		}
+
+		ret = false;
+		char* l_bin_str = cli->get_value_by_option("-l_bin", ret);
+		if(ret)
+		{
+			l_bin = atoi(l_bin_str);
 		}
 
 		ret = false;
@@ -1221,6 +1280,7 @@ if(__DUMP_PEAK_MESSAGES__)
 			base_scale_l_win,
 			end_scale_l_win,
 			log_step,
+			l_bin,
 			l_p_val_norm_win,
 			l_mapability_filtering_win,
 			max_normalized_mapability_signal,
@@ -1231,11 +1291,18 @@ if(__DUMP_PEAK_MESSAGES__)
 			P_VAL_PER_WIN_MAX_SIGNAL, // p-value selection.
 			false,  // do_replace_profiles_w_smoothed_profiles
 			false,  // do_BJ_correction_on_minima
-			true,   // do_filter_minima_per_length_min_base_scale_l_win: For broad peaks, this is set to true to enforce that there are no small weird peaks.
-			false,	// do_post_peak_p_value_minimization (p-val min)
+			false,   // do_filter_minima_per_length_min_base_scale_l_win: For broad peaks, this is set to true to enforce that there are no small weird peaks.
+			true,	// do_post_peak_p_value_minimization (p-val min)
 			.5,		// The flip probability.
 			true,
+			q_val_threshold,
 			q_val_threshold); 
+
+		FILE* f_beacon = open_f("beacon.log", "a");
+		clock_t end_c = clock();
+		fprintf(f_beacon, "MUSIC finished punctate peak calling in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fprintf(stderr, "MUSIC finished punctate peak calling in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fclose(f_beacon);
 	} // -get_multiscale_punctate_ERs
 	else if(strcmp(argv[1], "-get_TF_peaks") == 0)
 	{
@@ -1267,6 +1334,7 @@ if(__DUMP_PEAK_MESSAGES__)
 		double filtered_vs_non_filtered_max_scaler = 4;
 		double signal_profile_scaler = 1;
 		int l_fragment = 200;
+		int l_bin = 1;
 
 		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
 		bool ret = false;
@@ -1283,6 +1351,13 @@ if(__DUMP_PEAK_MESSAGES__)
 		{
 			fprintf(stderr, "Need control.\n");
 			exit(0);
+		}
+
+		ret = false;
+		char* l_bin_str = cli->get_value_by_option("-l_bin", ret);
+		if(ret)
+		{
+			l_bin = atoi(l_bin_str);
 		}
 
 		ret = false;
@@ -1370,7 +1445,6 @@ if(__DUMP_PEAK_MESSAGES__)
 			q_val_threshold = atof(q_val_str);
 		}
 
-
 		get_peaks(chip_reads_dir,
 			control_reads_dir,
 			NULL,
@@ -1380,6 +1454,7 @@ if(__DUMP_PEAK_MESSAGES__)
 			base_scale_l_win,
 			end_scale_l_win,
 			log_step,
+			l_bin,
 			l_p_val_norm_win,
 			l_mapability_filtering_win,
 			max_normalized_mapability_signal,
@@ -1390,11 +1465,18 @@ if(__DUMP_PEAK_MESSAGES__)
 			P_VAL_PER_WIN_MEAN_SIGNAL, // p-value selection.
 			false,  // do_replace_profiles_w_smoothed_profiles
 			false,  // do_BJ_correction_on_minima
-			true,   // do_filter_minima_per_length_min_base_scale_l_win: For broad peaks, this is set to true to enforce that there are no small weird peaks.
-			false,	// do_post_peak_p_value_minimization (p-val min)
+			false,   // do_filter_minima_per_length_min_base_scale_l_win: For broad peaks, this is set to true to enforce that there are no small weird peaks.
+			true,	// do_post_peak_p_value_minimization (p-val min)
 			.5,		// The flip probability.
 			false,	// Do not find troughs in the TF peaks.
+			q_val_threshold,
 			q_val_threshold); 
+
+		FILE* f_beacon = open_f("beacon.log", "a");
+		clock_t end_c = clock();
+		fprintf(f_beacon, "MUSIC finished TF peak calling in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fprintf(stderr, "MUSIC finished TF peak calling in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fclose(f_beacon);
 	} // -get_TF_peaks
 	else if(strcmp(argv[1], "-get_per_win_p_vals_vs_FC") == 0)
 	{
@@ -1413,9 +1495,9 @@ if(__DUMP_PEAK_MESSAGES__)
 		}
 
 		int l_fragment = 200;
-		int l_win_start = 100;
+		int l_win_start = 500;
 		int l_win_end = 5000;
-		int l_win_step = 100;
+		int l_win_step = 500;
 
 		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
 		bool ret = false;
@@ -1516,10 +1598,14 @@ if(__DUMP_PEAK_MESSAGES__)
 		double* log_factorials = buffer_log_factorials(1000*1000);
 
 		//FILE* f_win_stats = open_f("window_stats.txt", "w");
-		//for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
-		int i_chr = 0; 
+		for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
 		{
 			fprintf(stderr, "Processing chromosome %s\n", chr_ids->at(i_chr));
+
+			if(strcmp(chr_ids->at(i_chr), "M") == 0)
+			{
+				continue;
+			}
 
 			// Generate the current signal profile.
 			int l_buffer = 300*1000*1000;
@@ -1565,7 +1651,7 @@ if(__DUMP_PEAK_MESSAGES__)
 																		total_sig_scaling_factor);
 
 			double scaling_factor = per_win_1DOF_lls_scaling_factor;
-			fprintf(stderr, "Scaling control with factor of %lf\n", scaling_factor);
+			//fprintf(stderr, "Scaling control with factor of %lf\n", scaling_factor);
 
 			// Go over the whole control signal.
 			for(int i = 0; i < l_control; i++)
@@ -1576,13 +1662,10 @@ if(__DUMP_PEAK_MESSAGES__)
 			for(int l_win = l_win_start; l_win <= l_win_end; l_win += l_win_step)
 			{
 				int cur_win_start = 1;
-				while(cur_win_start < l_profile)
+				//while(cur_win_start < l_profile)
+				int win_end = MIN(l_profile, 50*1000*1000);
+				while(cur_win_start < win_end)
 				{
-					if(cur_win_start % 10*1000*1000 == 1)
-					{
-						fprintf(stderr, "Processing l_win = %d (%d, %d)             \r", l_win, cur_win_start, l_profile);
-					}
-
 					int cur_l_win = l_win;
 					if(cur_win_start+cur_l_win > l_profile)
 					{
@@ -1682,7 +1765,7 @@ if(__DUMP_PEAK_MESSAGES__)
 					} // window signal check.
 
 					// Update the thresholding window start.
-					cur_win_start += l_win;
+					cur_win_start += l_win*2;
 				} // cur_win_start loop.
 			} // cur_l_win loop.
 
@@ -1701,16 +1784,33 @@ if(__DUMP_PEAK_MESSAGES__)
 		*/
 		fprintf(stderr, "Dumping the per l_win accuracy stats.\n");
 		FILE* f_per_win_accuracy_stats = open_f("per_l_win_accuracy_stats.txt", "w");
+		FILE* f_l_p_param_stats = open_f("l_p_param_stats.txt", "w"); // This is the file to be read by MUSIC to select the l_p parameter.
 		for(int l_win = l_win_start; l_win <= l_win_end; l_win += l_win_step)
 		{
-			fprintf(f_per_win_accuracy_stats, "l_win: %d\tFNR: (FC:%.3f) (p-val:%.3f)\tFPR: (FC:%.3f) (p-val:%.3f)\tSentitivity: %.3f\n", l_win,
+			double fc_FNR =			n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win];
+			double p_val_FNR =		n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_insig_pval_wins_per_l_win[l_win];
+			double fc_FPR =			n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_insig_FC_wins_per_l_win[l_win];
+			double p_val_FPR =		n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_sig_pval_wins_per_l_win[l_win];
+			double sensitivity =	n_sig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win];			
+
+			fprintf(f_l_p_param_stats, "%d\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n", l_win,
+					fc_FNR, p_val_FNR, 
+					fc_FPR, p_val_FPR,
+					sensitivity);
+				//n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win],
+				//n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_insig_pval_wins_per_l_win[l_win],
+				//n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_insig_FC_wins_per_l_win[l_win],
+				//n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_sig_pval_wins_per_l_win[l_win],
+				//n_sig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win]);
+
+			fprintf(f_per_win_accuracy_stats, "l_win: %d\tFNR: (FC:%.3f) (p-val:%.3f)\tFPR: (FC:%.3f) (p-val:%.3f)\tSensitivity: %.3f\n", l_win,
 				n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win],
 				n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_insig_pval_wins_per_l_win[l_win],
 				n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_insig_FC_wins_per_l_win[l_win],
 				n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_sig_pval_wins_per_l_win[l_win],
 				n_sig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win]);
 
-			fprintf(stderr, "l_win: %d\tFNR: (FC:%.3f) (p-val:%.3f)\tFPR: (FC:%.3f) (p-val:%.3f)\tSentitivity: %.3f\n", l_win,
+			fprintf(stderr, "l_win: %d\tFNR: (FC:%.3f) (p-val:%.3f)\tFPR: (FC:%.3f) (p-val:%.3f)\tSensitivity: %.3f\n", l_win,
 				n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win],
 				n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_insig_pval_wins_per_l_win[l_win],
 				n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_insig_FC_wins_per_l_win[l_win],
@@ -1718,6 +1818,33 @@ if(__DUMP_PEAK_MESSAGES__)
 				n_sig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win]);
 		} // l_win loop.
 		fclose(f_per_win_accuracy_stats);
+		fclose(f_l_p_param_stats);
+
+		//fprintf(stderr, "Dumping the per l_win accuracy stats.\n");
+		//FILE* f_per_win_accuracy_stats = open_f("per_l_win_accuracy_stats.txt", "w");
+		//for(int l_win = l_win_start; l_win <= l_win_end; l_win += l_win_step)
+		//{
+		//	fprintf(f_per_win_accuracy_stats, "l_win: %d\tFNR: (FC:%.3f) (p-val:%.3f)\tFPR: (FC:%.3f) (p-val:%.3f)\tSentitivity: %.3f\n", l_win,
+		//		n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win],
+		//		n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_insig_pval_wins_per_l_win[l_win],
+		//		n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_insig_FC_wins_per_l_win[l_win],
+		//		n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_sig_pval_wins_per_l_win[l_win],
+		//		n_sig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win]);
+
+		//	fprintf(stderr, "l_win: %d\tFNR: (FC:%.3f) (p-val:%.3f)\tFPR: (FC:%.3f) (p-val:%.3f)\tSentitivity: %.3f\n", l_win,
+		//		n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win],
+		//		n_insig_pval_sig_FC_wins_per_l_win[l_win] / n_insig_pval_wins_per_l_win[l_win],
+		//		n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_insig_FC_wins_per_l_win[l_win],
+		//		n_sig_pval_insig_FC_wins_per_l_win[l_win] / n_sig_pval_wins_per_l_win[l_win],
+		//		n_sig_pval_sig_FC_wins_per_l_win[l_win] / n_sig_FC_wins_per_l_win[l_win]);
+		//} // l_win loop.
+		//fclose(f_per_win_accuracy_stats);
+
+		FILE* f_beacon = open_f("beacon.log", "a");
+		clock_t end_c = clock();
+		fprintf(f_beacon, "MUSIC finished computing p-value window length selection statistics in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fprintf(stderr, "MUSIC finished computing p-value window length selection statistics in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fclose(f_beacon);
 	} // -get_per_win_p_vals_vs_FC option.
 	else if(strcmp(argv[1], "-get_scale_spectrum") == 0)
 	{
@@ -1747,6 +1874,7 @@ if(__DUMP_PEAK_MESSAGES__)
 		double filtered_vs_non_filtered_max_scaler = 4;
 		double signal_profile_scaler = 1;
 		int l_fragment = 200;
+		int l_bin = 1;
 
 		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
 		bool ret = false;
@@ -1763,6 +1891,13 @@ if(__DUMP_PEAK_MESSAGES__)
 		{
 			fprintf(stderr, "Need control.\n");
 			exit(0);
+		}
+
+		ret = false;
+		char* l_bin_str = cli->get_value_by_option("-l_bin", ret);
+		if(ret)
+		{
+			l_bin = atoi(l_bin_str);
 		}
 
 		ret = false;
@@ -1858,6 +1993,7 @@ if(__DUMP_PEAK_MESSAGES__)
 			base_scale_l_win,
 			end_scale_l_win,
 			log_step,
+			l_bin,
 			l_p_val_norm_win,
 			l_mapability_filtering_win,
 			max_normalized_mapability_signal,
@@ -1872,6 +2008,7 @@ if(__DUMP_PEAK_MESSAGES__)
 			false,	// do_post_peak_p_value_minimization (p-val min)
 			.5,		// The flip probability.
 			false,
+			0.05,
 			0.05); 
 
 		double* log_factorials = buffer_log_factorials(1000*1000);		
@@ -1935,10 +2072,8 @@ if(__DUMP_PEAK_MESSAGES__)
 				control_data[i] *= scaling_factor;
 			} // i loop.
 		
-			//int max_n_scales = 50;
 			int cur_chr_n_scales = 0;
 			vector<t_annot_region*>* pooled_peaks = new vector<t_annot_region*>();
-			//for(int i_scale = 0; i_scale < max_n_scales; i_scale++)
 			int i_scale = 0;
 			double cur_l_scale = 1;
 			while(1)
@@ -1959,7 +2094,6 @@ if(__DUMP_PEAK_MESSAGES__)
 
 				// filtered_minima_3_scale_28.bed
 				char cur_peak_regs_bed_fp[1000];
-				//sprintf(cur_peak_regs_bed_fp, "filtered_minima_%s_scale_%d.bed", chr_ids->at(i_chr), i_scale);
 				sprintf(cur_peak_regs_bed_fp, "SSERs_%s_scale_%d.bed", chr_ids->at(i_chr), (int)cur_l_scale);
 				if(!check_file(cur_peak_regs_bed_fp))
 				{
@@ -2012,7 +2146,7 @@ if(__DUMP_PEAK_MESSAGES__)
 				fprintf(stderr, "Assigning peaks at scale %.2f.\n", cur_l_scale);
 
 				char cur_peak_regs_bed_fp[1000];
-				sprintf(cur_peak_regs_bed_fp, "SSERs_%s_scale_%d.bed", chr_ids->at(i_chr), (int)cur_l_scale);
+				sprintf(cur_peak_regs_bed_fp, "SSERs_%s_scale_%d.bed", chr_ids->at(i_chr), (int)(cur_l_scale));
 				if(!check_file(cur_peak_regs_bed_fp))
 				{
 					if(cur_l_scale >= base_scale_l_win)
@@ -2120,6 +2254,12 @@ if(__DUMP_PEAK_MESSAGES__)
 		} // i_scale loop.
 
 		fclose(f_per_scale_stats);
+
+		FILE* f_beacon = open_f("beacon.log", "a");
+		clock_t end_c = clock();
+		fprintf(f_beacon, "MUSIC finished computing scale spectrum in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fprintf(stderr, "MUSIC finished computing scale spectrum in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fclose(f_beacon);
 	} // -get_scale_spectrum option.
 	else if(strcmp(argv[1], "-get_multiscale_music") == 0)
 	{
