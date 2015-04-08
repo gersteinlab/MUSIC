@@ -146,13 +146,13 @@ We just added a new script run_MUSIC.csh. This script automates the parameter se
 with above parameters in order. Here is how this script can be used: 
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <font face="courier">
-read_fp="wgEncodeBroadHistoneGm12878H3k27me3StdAlnRep1.bam";
-mappability_map="mappability/36bp";
-input_processed_dir="input/pruned";
-mkdir preprocessed sorted pruned
-run_MUSIC.csh -preprocess ${read_fp} preprocessed
-run_MUSIC.csh -remove_duplicates preprocessed sorted pruned
-run_MUSIC.csh -get_optimal_broad_ERs pruned ${input_processed_dir} ${mappability_map}
+read_fp="wgEncodeBroadHistoneGm12878H3k27me3StdAlnRep1.bam";<br>
+mappability_map="mappability/36bp"; <br>
+input_processed_dir="input/pruned";<br>
+mkdir preprocessed sorted pruned<br>
+run_MUSIC.csh -preprocess ${read_fp} preprocessed<br>
+run_MUSIC.csh -remove_duplicates preprocessed sorted pruned<br>
+run_MUSIC.csh -get_optimal_broad_ERs pruned ${input_processed_dir} ${mappability_map}<br>
 </font>
 </div><br>
 Make sure that run_MUSIC.csh is included in PATH. Currently only BAM files are supported in preprocessing. We will add more file types, soon. Note that it is necessary to install samtools for making 
