@@ -73,6 +73,20 @@ MUSIC -get_multiscale_broad_ERs -chip chip/dedup -control input/dedup -mapp Mapp
 </div><br>
 This code tells MUSIC to identify the enriched regions starting from 1kb smoothing window length upto 16kb with multiplicative factor of 1.5 using the default
 parameters for the remaining parameters. The ERs for each scale are dumped. 
+
+There are 3 different ER identification modes by default. 
+<h1>-get_TF_peaks</h1>
+Identifies point binding events. This uses very small scale level to identify the small transcription factor binding peaks. Use this mode for TF's like CTCF. MUSIC aims
+at trimming the reported regions and identifying the peaks with most dense signal in it.
+
+<h1>-get_multiscale_punctate_ERs</h1>
+Identifies punctate enriched regions. Uses 100 base pairs to 2 kbps scale levels. This mode is useful for punctate histone marks like H3K4me3, H3K27ac, and marks that behave
+in a mixed manner with a dominating spectrum at punctate scales like H3K4me1.
+
+<h1>-get_multiscale_broad_ERs</h1>
+Identifies the ERs at broad scales that can span megabases. Use this option for marks like H3K9me3, H3K27me3, H3K36me3, H3K79me2, H4K20me1... Make sure you select p-value 
+normalization parameter to balance power and false positive rate.
+
 <br><br>
 MUSIC can save the smoothed tracks in <a href="http://genome.ucsc.edu/goldenPath/help/bedgraph.html">bedGraph</a> format that can be viewed locally:
 </div><br>

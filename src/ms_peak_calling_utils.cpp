@@ -1082,9 +1082,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 				cur_peak_info->climax_posn = 0;
 				cur_peak_info->max_control_mass = 0;
 				int cur_plateau_start = 0;
-				//int cur_plateau_end = 0;
-				//bool signal_increasing = false;
-				bool in_plateau = false;
+				//bool in_plateau = false;
 
 				// Following updates the ER information.
 				for(int i = strand_filtered_peaks->at(i_reg)->start; i <= strand_filtered_peaks->at(i_reg)->end; i++)
@@ -1095,21 +1093,19 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 					int cur_signal_val = (int)signal_profile[i];
 					int prev_signal_val = (int)signal_profile[i-1];
 
-					if(!in_plateau &&
-						cur_signal_val == prev_signal_val)
-					{
-						in_plateau = true;
-						cur_plateau_start = i-1;
-					}
-
+					// Was previous position the start of a plateau?
 					if(cur_signal_val > prev_signal_val)
 					{
 						cur_plateau_start = i;
 					}
 
-					// Did we start decreasing?
-					if(cur_signal_val < prev_signal_val &&
-						in_plateau)
+					// If the signal did not change; the current plateau is still continuing.
+					if(cur_signal_val == prev_signal_val)
+					{
+					}
+
+					// Are we decreasing? If so, check whether the plateau behind this was the top plateau.
+					if(cur_signal_val < prev_signal_val)
 					{
 						// Is this a maximum within the peak? Then the climax position is the mid point of the plateau.
 						if(cur_peak_info->max_chip_mass < floor(signal_profile[i-1]))
@@ -1119,13 +1115,13 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 						}
 
 						cur_plateau_start = i;
-						in_plateau = true;
 					}
 
-					if(cur_peak_info->max_chip_mass < floor(signal_profile[i]))
-					{
-						cur_peak_info->max_chip_mass = floor(signal_profile[i]);
-					}
+					// Following is updated above, do not include it!
+					//if(cur_peak_info->max_chip_mass < floor(signal_profile[i]))
+					//{
+					//	cur_peak_info->max_chip_mass = floor(signal_profile[i]);
+					//}
 
 					if(cur_peak_info->max_control_mass < floor(control_profile[i]))
 					{
@@ -1135,7 +1131,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 {
-				fprintf(stderr, "%s:%d-%d: %lf\n", chr_ids->at(i_chr), 
+				fprintf(stderr, "%s:%d-%d: %d\n", chr_ids->at(i_chr), 
 					strand_filtered_peaks->at(i_reg)->start, strand_filtered_peaks->at(i_reg)->end, cur_peak_info->climax_posn);
 				getc(stdin);
 }
@@ -1266,6 +1262,11 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 	char op_bed_fp[1000];
 	sprintf(op_bed_fp, "ERs_%.1f_%.1f_%.2f_%d_%.1f.bed", base_scale_l_win, end_scale_l_win, log_step, l_p_val_norm_win, filtered_vs_non_filtered_max_scaler);
 	dump_ERs_per_q_value_and_summit(significant_peaks, op_bed_fp);
+
+	// Dump the broad peak formatted regions.
+	char broadPeak_fp[1000];
+	sprintf(broadPeak_fp, "ERs.broadPeak");
+	dump_broadPeak_formatted_op(significant_peaks, broadPeak_fp);
 } // get_peaks function.
 
 /*
@@ -1370,6 +1371,27 @@ int get_trough_posn_per_ER(double* signal_profile, int l_profile,
 	return(trough_posn);
 }
 
+// https://genome.ucsc.edu/FAQ/FAQformat.html#format13
+void dump_broadPeak_formatted_op(vector<t_annot_region*>* regions, char* op_fp)
+{
+	FILE* f_op = open_f(op_fp, "w");
+
+	for(int i_reg = 0; i_reg < (int)regions->size(); i_reg++)
+	{
+		t_ER_info* cur_reg_info = (t_ER_info*)(regions->at(i_reg)->data);
+
+		double FC = cur_reg_info->total_chip_mass / (cur_reg_info->total_control_mass+1);
+
+		t_significance_info* sig_info = (t_significance_info*)(regions->at(i_reg)->significance_info);
+		fprintf(f_op, "%s\t%d\t%d\t.\t.\t+\t%d\t%.1f\t%.1f\n", regions->at(i_reg)->chrom, regions->at(i_reg)->start, regions->at(i_reg)->end, 
+			(int)(FC),
+			sig_info->log_p_val / xlog(10), 
+			sig_info->log_q_val / xlog(10));
+	} // i_reg loop.
+
+	fclose(f_op);
+}
+
 void dump_ERs_per_q_value_and_summit(vector<t_annot_region*>* regions, char* op_fp)
 {
 	FILE* f_op = open_f(op_fp, "w");
@@ -1378,7 +1400,7 @@ void dump_ERs_per_q_value_and_summit(vector<t_annot_region*>* regions, char* op_
 	{
 		t_ER_info* cur_reg_info = (t_ER_info*)(regions->at(i_reg)->data);
 
-		double FC = cur_reg_info->total_chip_mass / cur_reg_info->total_control_mass;
+		double FC = cur_reg_info->total_chip_mass / (cur_reg_info->total_control_mass+1);
 
 		//t_significance_info* sig_info = (t_significance_info*)(regions->at(i_reg)->significance_info);
 		//fprintf(f_op, "%s\t%d\t%d\t.\t%lf\t%c\t%d\t%d\t%d\t%d\t%lf\t%lf\n", regions->at(i_reg)->chrom, regions->at(i_reg)->start, regions->at(i_reg)->end, 
