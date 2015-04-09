@@ -123,30 +123,30 @@ There are two steps to parameter selection:
 </font>
 </div><br>
 This option estimates the false positive and negative rates using a large selection of p-value window lengths. The output is a file where each row look like this:
-
-...
-l_win: 1700	FNR: (FC:0.001) (p-val:0.001)	FPR: (FC:0.010) (p-val:0.005)	Sentitivity: 0.999
-...
-
-This option evaluates several windows lengths and estimates the false positive rate and false negative rates. Selecting the maximum window length (l_win) where false
-positive rate (FPR) for FC and p-val values are below 1%. 
-
+<br>
+...<br>
+l_win: 1700	FNR: (FC:0.001) (p-val:0.001)	FPR: (FC:0.010) (p-val:0.005)	Sentitivity: 0.999<br>
+...<br>
+<br>
+This option evaluates several windows lengths and estimates the false positive rate and false negative rates. We recommends using the maximum window length (l_win) where false
+positive rate (FPR) for FC and p-val values are below 1%.<br>
+<br>
 Note that you can skip going through the file manually if you specify p-value normalization window length as 0 ('-l_p 0') in the peak calling step; which tells MUSIC to select p-value normalization window length 
 from the above file automatically. For this to work, make sure that you do not delete any files after running -get_per_win_p_vals_FC option, otherwise MUSIC will complain that it cannot find 
-the file. See below for complete automation (of p-value normalization window length selection) with default parameters. 
-
+the file. See below for complete automation (of p-value normalization window length selection) with default parameters. <br>
+<br>
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <font face="courier">
-2. Using the p-value normalization window length in step 1, generate the scale specific ER scale spectrum: -get_scale_spectrum option.
-</font>
+2. Using the p-value normalization window length in step 1, generate the scale specific ER scale spectrum: -get_scale_spectrum option.<br>
+</font><br>
 </div><br>
 MUSIC generates the spectrum (using the scale lengths 100 base pairs to 1 megabase. The output is reported in a text file where each 
 row corresponds to a scale length. In each row, the coverage of the SSERs is given. For example: 
-
-...
-27	56815.13	111	11675769
-...
-
+<br>
+...<br>
+27	56815.13	111	11675769<br>
+...<br>
+<br>
 where 2nd column is the scale length and 4th column is the coverage of the ERs that are specific to that scale. It is best to plot the spectrum, i.e., the scale lengths versus 
 the fraction of coverage of the SSERs (4th column in the file), then match the spectrum with the studied HMs in the 
 manuscript. If the spectrum is very different from all of the parametrized ChIP-Seq datasets, it is useful to generate the statistics on ER length distribution 
