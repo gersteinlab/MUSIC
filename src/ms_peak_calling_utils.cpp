@@ -961,12 +961,20 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 					if(is_minima_significant &&
 						(!do_filter_minima_per_length_min_base_scale_l_win || (trimmed_minima_regions->at(i_reg)->end - trimmed_minima_regions->at(i_reg)->start > base_scale_l_win)))
 					{
-						cur_scale_filtered_minima->push_back(duplicate_region(trimmed_minima_regions->at(i_reg)));
+						t_annot_region* cur_dup_trimmed_reg = duplicate_region(trimmed_minima_regions->at(i_reg));
+						cur_dup_trimmed_reg->significance_info = trimmed_minima_regions->at(i_reg)->significance_info;
+						cur_scale_filtered_minima->push_back(cur_dup_trimmed_reg);
 					}
 					else
 					{
 					}
-				} // i_reg loop.	
+				} // i_reg loop.
+
+				// Dump the regions with significances.
+				char cur_scaled_filtered_minima_fp[1000];
+				sprintf(cur_scaled_filtered_minima_fp, "SSERs_%s_scale_%d.bed", chr_ids->at(i_chr), (int)(scales_per_i_scale->at(i_scale)*l_bin));
+				dump_BED_w_p_values(cur_scale_filtered_minima, cur_scaled_filtered_minima_fp);
+				//dump_BED(cur_scaled_filtered_minima_fp, cur_scale_filtered_minima);
 
 				// Delete the trimmed minima regions.
 				for(int i_reg = 0; i_reg < (int)trimmed_minima_regions->size(); i_reg++)
@@ -986,11 +994,6 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 					delete [] cur_scale_filtered_minima->at(i_reg)->chrom;
 					cur_scale_filtered_minima->at(i_reg)->chrom = t_string::copy_me_str(chr_ids->at(i_chr));
 				} // i_reg loop.
-
-				char cur_scaled_filtered_minima_fp[1000];
-				sprintf(cur_scaled_filtered_minima_fp, "SSERs_%s_scale_%d.bed", chr_ids->at(i_chr), (int)(scales_per_i_scale->at(i_scale)*l_bin));
-				//dump_BED_w_p_values(p_value_end_pruned_minima, cur_scaled_filtered_minima_fp);
-				dump_BED(cur_scaled_filtered_minima_fp, cur_scale_filtered_minima);
 			} // base_scale check.
 		} // i_scale loop.
 
