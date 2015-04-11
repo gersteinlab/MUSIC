@@ -1,5 +1,7 @@
 #!/bin/bash 
 
+# Check out the readme at the end.
+
 # Check the number of arguments.
 if [ $# -lt 3 ]
 then 
@@ -17,10 +19,25 @@ then
 	output_dir=$3;
 	file_extension=${read_file_name#*.};
 
-	if [ $file_extension == "tagAlign.gz" ]
+	if [[ "$read_file_name" == *.tagAlign.gz ]]
 	then
 		gzip -cd $2 | MUSIC -preprocess tagAlign stdin $output_dir
-	elif [ $file_extension == "bam" ]
+	elif [[ "$read_file_name" == *.tagAlign ]]
+	then
+		cat $2 | MUSIC -preprocess tagAlign stdin $output_dir
+	elif [[ "$read_file_name" == *.bed.gz ]]
+	then
+		gzip -cd $2 | MUSIC -preprocess BED6 stdin $output_dir
+	elif [[ "$read_file_name" == *.bed ]]
+	then
+		cat $2 | MUSIC -preprocess BED stdin $output_dir
+	elif [[ "$read_file_name" == *.bowtie ]]
+	then
+		cat $2 | MUSIC -preprocess bowtie stdin $output_dir
+	elif [[ "$read_file_name" == *.bowtie.gz ]]
+	then
+		gzip -cd $2 | MUSIC -preprocess bowtie stdin $output_dir
+	elif [[ "$read_file_name" == *.bam ]]
 	then
 		samtools view $2 | MUSIC -preprocess SAM stdin $output_dir
 	fi
@@ -88,9 +105,32 @@ fi
 # Done.
 exit;
 
+#
+# This script can be used to run MUSIC:
+# Punctate ER calling options: -get_optimal_punctate_ERs (Optimal ERs), -get_relaxed_punctate_ERs (Relaxed ER calls)
+# Use with: H3K4me3, H3K27ac, H3K4me1, H3K4me3, H3K9ac, H2az.  
+# 
+# Broad ER calling options: -get_optimal_broad_ERs (Optimal ERs), -get_relaxed_broad_ERs (Relaxed ER calls)
+# Use With: H3K9me3, H3K36me3, H3K27me3, H3K79me2, H4K20me1. 
+#
+# Following commands give an example run for replicates and pooled run. 
+# Note that the input (control) needs to be preprocessed and duplicate removed before ER calling. This is used in ER calling.
+#
+# In order to call punctate ERs (see above for which marks are considered punctate), just change "broad" to "punctate" in ER calling command line.
+# 
+# Multi-mappability profiles for the read length is very useful for running especially the broad peaks. 
+# You can find some of these at http://archive.gersteinlab.org/proj/MUSIC/multimap_profiles/ 
+# Email to me (arif.harmanci@yale.edu) for generating a new one.
+#
+
+# The input (control) should be preprocessed first.
+input_fp="../../wgEncodeBroadHistoneGm12878ControlStdAlnRep1.bam";
+mkdir input;mkdir input/preprocessed input/sorted input/pruned
+run_MUSIC.csh -preprocess ${input_fp} input/preprocessed 
+run_MUSIC.csh -remove_duplicates input/preprocessed input/sorted input/pruned
+
 # Rep run.
 rep_fp="../../wgEncodeBroadHistoneGm12878H3k27me3StdAlnRep1.tagAlign.gz";
-rep_fp="../../wgEncodeBroadHistoneGm12878H3k27me3StdAlnRep1.bam";
 mappability_map="../../../mappability/36bp";
 input_processed_dir="../../input/pruned";
 rm -f -r preprocessed sorted pruned
@@ -102,8 +142,6 @@ run_MUSIC.csh -get_optimal_broad_ERs pruned ${input_processed_dir} ${mappability
 # Pooled processing
 rep1_fp="../../wgEncodeBroadHistoneGm12878H3k36me3StdAlnRep1.tagAlign.gz";
 rep2_fp="../../wgEncodeBroadHistoneGm12878H3k36me3StdAlnRep2.tagAlign.gz";
-rep1_fp="../../wgEncodeBroadHistoneGm12878H3k36me3StdAlnRep1.bam";
-rep2_fp="../../wgEncodeBroadHistoneGm12878H3k36me3StdAlnRep2.bam";
 mappability_map="../../../mappability/36bp";
 input_processed_dir="../../input/pruned";
 rm -f -r preprocessed sorted pruned
