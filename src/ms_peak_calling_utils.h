@@ -20,7 +20,7 @@ struct t_ER_info
 	double total_chip_mass;
 	double total_control_mass;
 
-	double climax_posn;
+	int climax_posn;
 
 	double max_chip_mass;
 	double max_control_mass;
@@ -54,6 +54,7 @@ int get_trough_posn_per_ER(double* signal_profile, int l_profile,
 							int l_trough_win);
 
 void dump_ERs_per_q_value_and_summit(vector<t_annot_region*>* regions, char* op_fp);
+void dump_broadPeak_formatted_op(vector<t_annot_region*>* regions, char* op_fp);
 
 vector<t_annot_region*>* filter_strand_uneven_peaks(vector<t_annot_region*>* peak_regions,
 		char* chrom,

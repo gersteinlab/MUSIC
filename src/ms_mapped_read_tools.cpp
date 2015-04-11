@@ -357,6 +357,39 @@ void load_mapped_sequenced_reads_per_tagAlign(char* tagalign_fp, vector<t_sequen
 void load_mapped_sequenced_reads_per_bowtie(char* bowtie_fp, vector<t_sequenced_read*>* sequenced_reads);
 // ABOVE IS THE FASTQ LOADING INTERFACE:
 
+void count_preprocessed_reads(char* mapped_reads_fp, int& n_F, int& n_R)
+{
+	n_F = 0;
+	n_R = 0;
+
+	FILE* f_mapped_reads = open_f(mapped_reads_fp, "r");
+	char cur_line[1000];
+	while(1)
+	{
+		if(fgets(cur_line, 1000, f_mapped_reads) == NULL)
+		{
+			break;
+		}
+
+		char cur_strand_char;
+		if(sscanf(cur_line, "%*s %c", &cur_strand_char) != 1)
+		{
+			break;
+		}
+
+		if(cur_strand_char == 'F')
+		{
+			n_F++;
+		}
+
+		if(cur_strand_char == 'R')
+		{
+			n_R++;
+		}
+	} // file reading loop.
+	fclose(f_mapped_reads);
+}
+
 // Generic preprocessing function for mapped read files.
 void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void (preprocess_mapped_read_line)(char* cur_line, 
 	char* read_id,
@@ -947,7 +980,7 @@ void preprocess_BED5_read_line(char* cur_line,
 	char strand_sign;
 	int chr_start_index;
 	int chr_end_index;
-	if(sscanf(cur_line, "%s %d %d %*s %*s %c", chrom, &chr_start_index, &chr_end_index, &strand_sign) == 4)
+	if(sscanf(cur_line, "%s %d %d %*s %c", chrom, &chr_start_index, &chr_end_index, &strand_sign) == 4)
     {
 		// Note that the indices in tagAlign file are 0 based, these must be translated to 1 based indices.
 		sprintf(mapping_quality_str, "%dM", chr_end_index-chr_start_index);
@@ -970,6 +1003,38 @@ void preprocess_BED5_read_line(char* cur_line,
 	}
 }
 
+void preprocess_BED6_read_line(char* cur_line, 
+	char* read_id, 
+	char* chrom, 
+	int& chr_index, int& sequenced_length, 
+	char& strand_char, 
+	char* mapping_quality_str)
+{
+	char strand_sign;
+	int chr_start_index;
+	int chr_end_index;
+	if(sscanf(cur_line, "%s %d %d %*s %*s %c", chrom, &chr_start_index, &chr_end_index, &strand_sign) == 4)
+    {
+		// Note that the indices in tagAlign file are 0 based, these must be translated to 1 based indices.
+		sprintf(mapping_quality_str, "%dM", chr_end_index-chr_start_index);
+		sequenced_length = chr_end_index-chr_start_index;
+
+		chr_start_index = translate_coord(chr_start_index, BED_COORDS::start_base, CODEBASE_COORDS::start_base);
+
+		// Check the flag and determine the strand.
+		strand_char = 'F';
+		if(strand_sign == '-')
+		{
+			strand_char = 'R';
+		}
+
+		chr_index = chr_start_index;
+	}
+	else
+	{
+		chrom[0] = 0;
+	}
+}
 
 double get_n_mapped_nucs(vector<t_mapped_fragment*>* fragments)
 {

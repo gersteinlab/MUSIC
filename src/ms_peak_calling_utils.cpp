@@ -584,6 +584,9 @@ void get_peaks(char* chip_reads_dir,
 			continue;
 		}
 
+		// TODO::Following is useful for bypassing buffering of the signal profile first.
+		//int get_l_signal_per_reads(char* reads_fp, int l_ext_tag)
+
 		// Generate the current signal profile.
 		int l_buffer = 300*1000*1000;
 		int l_profile = 0;
@@ -597,6 +600,21 @@ void get_peaks(char* chip_reads_dir,
 			fprintf(stderr, "Processed IP reads for %s does not exist @ %s. Skipping.\n", chr_ids->at(i_chr), cur_chr_chip_reads_fp);
 			continue;
 		}
+
+		//// TODO::Count the reads and generate the F/R ratio.
+		//int n_F = 0;
+		//int n_R = 0;
+		//count_preprocessed_reads(cur_chr_chip_reads_fp, n_F, n_R);
+		//if(n_F == 0 || n_R == 0)
+		//{
+		//	min_per_strand_evennes_fraction = 0;
+		//}
+		//else
+		//{
+		//	min_per_strand_evennes_fraction = MIN(((double)n_F/n_R), ((double)n_R/n_F)) / 2;
+		//}
+
+		//fprintf(stderr, "Evenness fraction is %.3f\n", min_per_strand_evennes_fraction);
 
 		buffer_per_nucleotide_profile_no_buffer(cur_chr_chip_reads_fp, l_fragment, 
 			buffered_signal_profile, NULL, NULL,
@@ -1039,6 +1057,16 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		for(int i_reg = 0; i_reg < (int)p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions->size(); i_reg++)
 		{
 			t_ER_info* cur_peak_info = (t_ER_info*)(p_value_pruned_rd_pruned_filtered_pruned_merged_minima_regions->at(i_reg)->data);
+
+			if(cur_peak_info->total_fore_mass == 0)
+			{
+				cur_peak_info->total_fore_mass = 1;
+			}
+
+			if(cur_peak_info->total_rev_mass == 0)
+			{
+				cur_peak_info->total_rev_mass = 1;
+			}
 
 			if(cur_peak_info->total_fore_mass > 0 &&
 				cur_peak_info->total_rev_mass > 0 &&

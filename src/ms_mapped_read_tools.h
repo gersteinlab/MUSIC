@@ -95,6 +95,8 @@ void count_mapped_reads_per_file(char* mrf_fp, void (preprocess_mapped_read_line
 	char* mapping_quality_str),
 	double n_total_reads);
 
+void count_preprocessed_reads(char* mapped_reads_fp, int& n_F, int& n_R);
+
 // Following are the preprocessing functions for preprocessing the mapped reads file 
 void preprocess_mapped_reads_file(char* mrf_fp, char* parsed_reads_op_dir, void (preprocess_mapped_read_line)(char* cur_line, 
 	char* read_id,
@@ -145,6 +147,12 @@ void preprocess_BED5_read_line(char* cur_line,
 	int& chr_index, int& sequenced_length, 
 	char& strand_char, 
 	char* cigar_str);
+void preprocess_BED6_read_line(char* cur_line, 
+	char* read_id, 
+	char* chrom, 
+	int& chr_index, int& sequenced_length, 
+	char& strand_char, 
+	char* mapping_quality_str);
 
 int get_l_signal_per_reads(char* reads_fp, int l_ext_tag);
 

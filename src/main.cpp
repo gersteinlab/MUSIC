@@ -31,7 +31,7 @@ void print_usage(char* argv[])
 	fprintf(stderr, "USAGE: %s [options] [arguments]\n\
 Options:\n\
 Read Preprocessing:\n\
-	-preprocess [File format (\"SAM\"/\"ELAND\"/\"bowtie\"/\"tagAlign\"/\"BED\")] [Mapped reads file path (\"stdin\" for piped input)] [Output directory]\n\
+	-preprocess [File format (\"SAM\"/\"ELAND\"/\"bowtie\"/\"tagAlign\"/\"BED5\"/\"BED6\")] [Mapped reads file path (\"stdin\" for piped input)] [Output directory]\n\
 	-sort_reads [Reads directory] [Output directory]\n\
 	-remove_duplicates [Sorted reads directory] [Max # of duplicates per position] [Output directory]\n\
 Peak Selection:\n\
@@ -93,7 +93,7 @@ int main(int argc, char* argv[])
 	{
 		if(argc != 5)
 		{
-			fprintf(stderr, "USAGE: %s -preprocess [File format (\"SAM\"/\"ELAND\"/\"bowtie\"/\"tagAlign\"/\"BED\")] [Mapped reads file path (\"stdin\" for piped input)] [Output directory]\n", argv[0]);
+			fprintf(stderr, "USAGE: %s -preprocess [File format (\"SAM\"/\"ELAND\"/\"bowtie\"/\"tagAlign\"/\"BED5\"/\"BED6\")] [Mapped reads file path (\"stdin\" for piped input)] [Output directory]\n", argv[0]);
 			exit(0);
 		}
 
@@ -129,11 +129,17 @@ int main(int argc, char* argv[])
 			//parse_bowtie_formatted_mapped_reads_file(chr_fps, parsed_reads_op_dir, chip_seq_eland_op_fp);
 			preprocess_mapped_reads_file(mapped_reads_fp, op_dir, preprocess_bowtie_read_line, false);
 		}
-		else if(strcmp(format_str, "BED") == 0)
+		else if(strcmp(format_str, "BED5") == 0)
 		{
 			// Read the bowtie file specified at the command line, separate it: Generate a mapped _reads file for each chromosome.
 			//parse_bowtie_formatted_mapped_reads_file(chr_fps, parsed_reads_op_dir, chip_seq_eland_op_fp);
 			preprocess_mapped_reads_file(mapped_reads_fp, op_dir, preprocess_BED5_read_line, false);
+		}
+		else if(strcmp(format_str, "BED6") == 0)
+		{
+			// Read the bowtie file specified at the command line, separate it: Generate a mapped _reads file for each chromosome.
+			//parse_bowtie_formatted_mapped_reads_file(chr_fps, parsed_reads_op_dir, chip_seq_eland_op_fp);
+			preprocess_mapped_reads_file(mapped_reads_fp, op_dir, preprocess_BED6_read_line, false);
 		}
 		else
 		{
@@ -1485,12 +1491,12 @@ if(__DUMP_PEAK_MESSAGES__)
 		if(argc < 3)
 		{
 			fprintf(stderr, "%s -get_per_win_p_vals_vs_FC [Options/Values]\n\
-							-chip [ChIP reads directory]\n\
-							-control [control reads directory]\n\
-							-l_frag [Fragment length (200)]\n\
-							-l_win_min [Minimum p-val window length (100)]\n\
-							-l_win_max [Maximum p-val window length (5000)]\n\
-							-l_win_step [p-val window length step (250)]\n", argv[0]);
+	-chip [ChIP reads directory]\n\
+	-control [control reads directory]\n\
+	-l_frag [Fragment length (200)]\n\
+	-l_win_min [Minimum p-val window length (100)]\n\
+	-l_win_max [Maximum p-val window length (5000)]\n\
+	-l_win_step [p-val window length step (250)]\n", argv[0]);
 			exit(0);
 		}
 
