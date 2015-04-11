@@ -1411,7 +1411,7 @@ void dump_broadPeak_formatted_op(vector<t_annot_region*>* regions, char* op_fp)
 		double FC = cur_reg_info->total_chip_mass / (cur_reg_info->total_control_mass+1);
 
 		t_significance_info* sig_info = (t_significance_info*)(regions->at(i_reg)->significance_info);
-		fprintf(f_op, "%s\t%d\t%d\t.\t.\t+\t%d\t%.1f\t%.1f\n", regions->at(i_reg)->chrom, regions->at(i_reg)->start, regions->at(i_reg)->end, 
+		fprintf(f_op, "%s\t%d\t%d\t.\t.\t+\t%d\t%.6f\t%.6f\n", regions->at(i_reg)->chrom, regions->at(i_reg)->start, regions->at(i_reg)->end, 
 			(int)(FC),
 			sig_info->log_p_val / xlog(10), 
 			sig_info->log_q_val / xlog(10));
