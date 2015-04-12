@@ -970,11 +970,17 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 					}
 				} // i_reg loop.
 
+				// Replace the chromosome ids for each region.
+				for(int i_reg = 0; i_reg < (int)cur_scale_filtered_minima->size(); i_reg++)
+				{
+					delete [] cur_scale_filtered_minima->at(i_reg)->chrom;
+					cur_scale_filtered_minima->at(i_reg)->chrom = t_string::copy_me_str(chr_ids->at(i_chr));
+				} // i_reg loop.
+
 				// Dump the regions with significances.
 				char cur_scaled_filtered_minima_fp[1000];
 				sprintf(cur_scaled_filtered_minima_fp, "SSERs_%s_scale_%d.bed", chr_ids->at(i_chr), (int)(scales_per_i_scale->at(i_scale)*l_bin));
 				dump_BED_w_p_values(cur_scale_filtered_minima, cur_scaled_filtered_minima_fp);
-				//dump_BED(cur_scaled_filtered_minima_fp, cur_scale_filtered_minima);
 
 				// Delete the trimmed minima regions.
 				for(int i_reg = 0; i_reg < (int)trimmed_minima_regions->size(); i_reg++)
@@ -983,17 +989,10 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 				} // i_reg loop.
 				delete_annot_regions(trimmed_minima_regions);
 
-				// Insert the merged regions w 
+				// Insert the ssers.
 				all_filtered_pruned_minima_regions->insert(all_filtered_pruned_minima_regions->end(), 
 															cur_scale_filtered_minima->begin(), 
 															cur_scale_filtered_minima->end());
-
-				// Replace the chromosome ids for each region.
-				for(int i_reg = 0; i_reg < (int)cur_scale_filtered_minima->size(); i_reg++)
-				{
-					delete [] cur_scale_filtered_minima->at(i_reg)->chrom;
-					cur_scale_filtered_minima->at(i_reg)->chrom = t_string::copy_me_str(chr_ids->at(i_chr));
-				} // i_reg loop.
 			} // base_scale check.
 		} // i_scale loop.
 
