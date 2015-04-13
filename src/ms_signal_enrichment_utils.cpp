@@ -411,10 +411,12 @@ double get_binomial_pvalue_per_region_neighborhood_window_control_per_max_profil
 	while(1)
 	{
 		// Remove the value that just left the window.
-		cur_win_total -= floor(control_track_data[cur_win_start]);
+		//cur_win_total -= floor(control_track_data[cur_win_start]);
+		cur_win_total -= control_track_data[cur_win_start];
 
 		// Add the newly entering value to the window.
-		cur_win_total += floor(control_track_data[cur_win_start+l_norm_win]);
+		//cur_win_total += floor(control_track_data[cur_win_start+l_norm_win]);
+		cur_win_total += control_track_data[cur_win_start+l_norm_win];
 
 		if(cur_win_total > total_control_signal)
 		{
