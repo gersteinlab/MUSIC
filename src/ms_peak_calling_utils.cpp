@@ -1363,7 +1363,8 @@ int get_trough_posn_per_ER(double* signal_profile, int l_profile,
 		double total_multi_mapp_signal = 0;
 		if(multi_mapp_signal != NULL)
 		{
-            for(int i = minima_nodes->at(i_min)->extrema_posn-l_trough_win/2; i < minima_nodes->at(i_min)->extrema_posn+l_trough_win/2; i++)
+            for(int i = MAX(0, minima_nodes->at(i_min)->extrema_posn-l_trough_win/2); 
+				i < MIN(l_multi_map_signal-1, minima_nodes->at(i_min)->extrema_posn+l_trough_win/2); i++)
             {
                 total_multi_mapp_signal += multi_mapp_signal[ER_start+i];
             } // i loop.
