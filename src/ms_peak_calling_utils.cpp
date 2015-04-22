@@ -1228,7 +1228,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 				int cur_ER_trough_posn = get_trough_posn_per_ER(signal_profile, l_profile, 
 																mapability_signal_profile, l_mapability_profile, max_normalized_mapability_signal,
 																strand_filtered_peaks->at(i_reg)->start, strand_filtered_peaks->at(i_reg)->end, 
-																0);
+																100);
 
 				cur_ER_info->mappable_trough = cur_ER_trough_posn;
 			} // i_reg loop.
@@ -1363,22 +1363,39 @@ int get_trough_posn_per_ER(double* signal_profile, int l_profile,
 		double total_multi_mapp_signal = 0;
 		if(multi_mapp_signal != NULL)
 		{
-			for(int i = prev_max->extrema_posn; i <= next_max->extrema_posn; i++)
-			{
-				total_multi_mapp_signal += multi_mapp_signal[ER_start+i];
-			} // i loop.
+            for(int i = minima_nodes->at(i_min)->extrema_posn-l_trough_win/2; i < minima_nodes->at(i_min)->extrema_posn+l_trough_win/2; i++)
+            {
+                total_multi_mapp_signal += multi_mapp_signal[ER_start+i];
+            } // i loop.
+
+			//for(int i = prev_max->extrema_posn; i <= next_max->extrema_posn; i++)
+			//{
+			//	total_multi_mapp_signal += multi_mapp_signal[ER_start+i];
+			//} // i loop.
 		}
 
 		// Make sure that the region in this trough is mappable.
+		// total_multi_mapp_signal / (next_max->extrema_posn - prev_max->extrema_posn+1) < max_multi_mapp_val)
 		if(multi_mapp_signal == NULL ||
-			total_multi_mapp_signal / (next_max->extrema_posn - prev_max->extrema_posn+1) < max_multi_mapp_val)
+			total_multi_mapp_signal / l_trough_win < max_multi_mapp_val)
 		{
 			rank_sum_per_minimum->push_back(i_min + prev_max_rank + next_max_rank);
 		}
+		else
+		{
+			rank_sum_per_minimum->push_back((int)maxima_nodes->size() + (int)maxima_nodes->size() + (int)minima_nodes->size());
+		}
 	} // i_min loop.
 
+	// Check on the number of rank sums that are generated.
+	if(rank_sum_per_minimum->size() != minima_nodes->size())
+	{
+		fprintf(stderr, "The sanity check failed, per minimum rank sum count does not match the minima positions.\n");
+		exit(0);
+	}
+
 	// Find the minimum with smallest rank-sum statistic.
-	int smallest_rank_sum_stat = 1000;
+	int smallest_rank_sum_stat = (int)maxima_nodes->size() + (int)maxima_nodes->size() + (int)minima_nodes->size();
 	int smallest_rank_sum_min_i = 0;
 	for(int i_min = 0; i_min < (int)rank_sum_per_minimum->size(); i_min++)
 	{

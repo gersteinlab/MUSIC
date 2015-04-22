@@ -2713,6 +2713,7 @@ vector<t_annot_region*>* merge_annot_regions(vector<t_annot_region*>* total_anno
 						t_annot_region* new_region = new t_annot_region();
 						new_region->start = cur_start;
 						new_region->end = cur_end;
+						new_region->name = NULL;
 						new_region->chrom = new char[strlen(cur_chr_regions->at(i)->chrom) + 2];
 						strcpy(new_region->chrom, cur_chr_regions->at(i)->chrom);
 						new_region->strand = cur_chr_regions->at(i)->strand;
@@ -2733,6 +2734,7 @@ vector<t_annot_region*>* merge_annot_regions(vector<t_annot_region*>* total_anno
 					new_region->start = cur_start;
 					//new_region->end = cur_chr_regions->at(i)->end;
 					new_region->end = cur_end;
+					new_region->name = NULL;
 					new_region->chrom = new char[strlen(cur_chr_regions->at(i)->chrom) + 2];
 					strcpy(new_region->chrom, cur_chr_regions->at(i)->chrom);
 					new_region->strand = cur_chr_regions->at(i)->strand;

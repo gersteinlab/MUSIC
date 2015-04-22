@@ -1496,14 +1496,14 @@ if(__DUMP_PEAK_MESSAGES__)
 	-l_frag [Fragment length (200)]\n\
 	-l_win_min [Minimum p-val window length (100)]\n\
 	-l_win_max [Maximum p-val window length (5000)]\n\
-	-l_win_step [p-val window length step (250)]\n", argv[0]);
+	-l_win_step [p-val window length step (100)]\n", argv[0]);
 			exit(0);
 		}
 
 		int l_fragment = 200;
 		int l_win_start = 500;
 		int l_win_end = 5000;
-		int l_win_step = 500;
+		int l_win_step = 100;
 
 		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
 		bool ret = false;
