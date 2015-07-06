@@ -48,6 +48,8 @@ void write_decomposition_bedGraphs(char* chip_reads_dir,
 		int l_mapability_filtering_win,
 		double max_normalized_mapability_signal);
 
+double* load_normalized_multimappability_profile(char* mapability_signal_profile_fp, int& l_mapability_profile);
+
 int get_trough_posn_per_ER(double* signal_profile, int l_profile, 
 							double* multi_mapp_signal, int l_multi_map_signal, double max_multi_mapp_val,
 							int ER_start, int ER_end, 

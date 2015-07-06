@@ -515,7 +515,7 @@ void dump_GFF_per_region_intervals(vector<t_annot_region*>* regions, char* gff_f
 		}
 		else
 		{
-			sprintf(cur_transcript_name, regions->at(i_reg)->name);
+			sprintf(cur_transcript_name, "%s", regions->at(i_reg)->name);
 		}
 
 		if(interval_parent_feature_str != NULL)
@@ -897,7 +897,7 @@ vector<t_annot_region*>* load_BED(char* bed_fp)
 			//new_region->end = end - BED_END_BASE + CODEBASE_END_BASE;
 			new_region->start = translate_coord(start, BED_COORDS::start_base, CODEBASE_COORDS::start_base);
 			new_region->end = translate_coord(end, BED_COORDS::end_base, CODEBASE_COORDS::end_base);
-			new_region->chrom = new_region->chrom = t_string::copy_me_str(chrom);
+			new_region->chrom = t_string::copy_me_str(chrom);
 			normalize_chr_id(new_region->chrom);
 			new_region->name = new char[strlen(region_name) + 2];
 			strcpy(new_region->name, region_name);

@@ -96,12 +96,14 @@ int select_l_p_per_stats_file(const char* l_p_param_stats_fp,
 
 		if(target_fpr_satisfied || sensitivity_satisfied)
 		{
+			// Early select 1: Sensitivity reached a very high value before we hit the FPR check.
 			if(target_fpr_satisfied && sensitivity_satisfied &&
 				sensitivity >= min_sensitivity_per_satisfying_fpr)
 			{
 				break;
 			}
 
+			// Early select 2: Sensitivity is satisfied and FPR is very low, stop increasing window.
 			if(sensitivity_satisfied && target_fpr_satisfied && 
 				fc_FPR <= max_fpr_per_satisfying_sensitivity && 
 				p_val_FPR <= max_fpr_per_satisfying_sensitivity)

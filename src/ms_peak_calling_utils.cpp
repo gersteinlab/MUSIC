@@ -537,8 +537,6 @@ void get_peaks(char* chip_reads_dir,
 		// Follwoing are early stop conditions for parameter selection.
 		double min_sensitivity_per_satisfying_FPR = 0.99; // If sensitivity is greater than this while FPR is satisfied, we use this value.
 		double max_fpr_per_satisfying_sensitivity = 0.0; // If fpr is smaller than this value at satisfying sensitivity, we use this value.
-		//l_p_val_norm_win = select_l_p_per_stats_file("l_p_param_stats.txt", target_max_p_val_fc_fpr, target_min_sensitivity, 
-		//	min_sensitivity_per_satisfying_FPR);
 
 		l_p_val_norm_win = select_l_p_per_stats_file("l_p_param_stats.txt", 
 													target_max_p_val_fc_fpr, 
@@ -703,14 +701,14 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		fprintf(stderr, "Scaling control with factor of %lf\n", scaling_factor);
 
 		// Go over the whole control signal.
-		for(int i = 0; i < l_control; i++)
+		for(int i = 1; i <= l_control; i++)
 		{
 			control_profile[i] *= scaling_factor;
 		} // i loop.
 
 		// Dump the signal and control profiles after fixing.
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
-{			
+{
 		char mapable_aware_filtered_control_profile_fp[] = "mapability_aware_profile.bin";
 		dump_per_nucleotide_binary_profile(mapability_aware_smoothed_signal_profile, l_profile, mapable_aware_filtered_control_profile_fp);
 }		
@@ -724,15 +722,16 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		//int l_bin = 5;
 		int n_bins = (l_profile / l_bin);
 		double* binned_mapability_aware_filtered_signal = new double[n_bins+10];
+		memset(binned_mapability_aware_filtered_signal, 0, sizeof(double) * (n_bins+9));
 		for(int i_bin = 0; i_bin < n_bins; i_bin++)
 		{
 			int bin_start = i_bin * l_bin;
 			int bin_end = (i_bin+1) * l_bin;
-			binned_mapability_aware_filtered_signal[i_bin] = 0;
+			binned_mapability_aware_filtered_signal[i_bin+1] = 0;
 			for(int i = bin_start; i < bin_end; i++)
 			{
 				//binned_mapability_aware_filtered_signal[i_bin] += mapability_aware_smoothed_signal_profile[i];
-				binned_mapability_aware_filtered_signal[i_bin] += base_scale_smoothed_signal[i];
+				binned_mapability_aware_filtered_signal[i_bin+1] += base_scale_smoothed_signal[i+1];
 			} // i loop.
 		}  // i_bin loop.
 		delete [] base_scale_smoothed_signal;
@@ -760,6 +759,12 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		fprintf(stderr, "Mapping back the per scale feature regions.\n");
 		for(int i_scale = 0; i_scale < (int)per_scale_minima_regions->size(); i_scale++)
 		{
+			// If there are no minima, continue to next scale.
+			if((int)per_scale_minima_regions->at(i_scale)->size() == 0)
+			{
+				continue;
+			}
+
 			if(scales_per_i_scale->at(i_scale) < base_scale_l_win_per_bin)
 			{
 			}

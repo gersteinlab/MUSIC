@@ -2625,6 +2625,43 @@ if(__DUMP_PEAK_MESSAGES__)
 		delete [] signal_profile_buffer;
 		delete [] char_signal_buffer;
 	} // -get_multimapability_signal_per_mapped_reads
+	else if(strcmp(argv[1], "-get_multimappability_map_profile_stats") == 0)
+	{
+		if(argc != 4)
+		{
+			fprintf(stderr, "USAGE: %s -get_mappability_map_profile_stats [Chromosome id's file path] [Multi-Mappability profiles directory]\n", argv[0]);
+			exit(0);
+		}
+
+		char* chr_ids_fp = argv[2];
+		char* multimap_profiles_dir = argv[3];
+
+		vector<char*>* chr_ids = buffer_file(chr_ids_fp);
+
+		for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
+		{
+			fprintf(stderr, "Processing %s\n", chr_ids->at(i_chr));
+
+			// Get the fraction of 
+			char mapability_signal_profile_fp[1000];
+			sprintf(mapability_signal_profile_fp, "%s/%s.bin", multimap_profiles_dir, chr_ids->at(i_chr));
+			int l_mapability_profile;
+			double* multi_map_profile = load_normalized_multimappability_profile(mapability_signal_profile_fp, l_mapability_profile);
+
+			double n_unique = 0;
+			for(int i = 1; i <= l_mapability_profile; i++)
+			{
+				if(multi_map_profile[i] < 1.005 && multi_map_profile[i] > 0.995)
+				{
+					n_unique++;
+				}
+			} // i loop.
+
+			fprintf(stderr, "%d (%.3f) unique out of %d positions.\n", (int)n_unique, n_unique / l_mapability_profile, l_mapability_profile);
+
+			delete [] multi_map_profile;
+		} // i_chr loop.
+	} // get_multimappability_map_profile_stats option.
 	else if(strcmp(argv[1], "-uchar_profile_2_double_profile") == 0)
 	{
 		// At this point, 

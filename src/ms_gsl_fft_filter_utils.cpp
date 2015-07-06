@@ -95,6 +95,7 @@ int sort_doubles_descending(const void* p1, const void* p2)
 	}
 }
 
+// Median filter: Generates 1 based filtered tracks.
 double* median_filter_data(double* track_data,
 	int l_track_data, 
 	int l_averaging_win,
@@ -395,7 +396,8 @@ if(__DUMP_FILTER_MSGS__)
 			int prev_avg_end = 0;
 
 			// Go over all the positions as the middle of the filtering window.
-			for(int cur_win_mid = 0; cur_win_mid < l_track_data; cur_win_mid++)
+			//for(int cur_win_mid = 0; cur_win_mid < l_track_data; cur_win_mid++)
+			for(int cur_win_mid = 1; cur_win_mid <= l_track_data; cur_win_mid++)
 			{
 				int cur_avg_start = (cur_win_mid > half_l_averaging)?(cur_win_mid - half_l_averaging):(1);
 				int cur_avg_end = (cur_win_mid + half_l_averaging <= l_track_data)?(cur_win_mid + half_l_averaging):(l_track_data);
@@ -777,6 +779,7 @@ if(__DUMP_FILTER_MSGS__)
 
 			// Do copying from start to end.
 			double* cur_filtered_track = new double[l_track_data + 2];
+			memset(cur_filtered_track, 0, (l_track_data+1)*sizeof(double));
 
 			int n_signal_wins = 0;
 			int half_l_averaging = l_averaging_win / 2;
@@ -809,8 +812,8 @@ if(__DUMP_FILTER_MSGS__)
 			int prev_avg_start = 0;
 			int prev_avg_end = 0;
 
-			// Go over all the positions as the middle of the filtering window.
-			for(int cur_win_mid = 0; cur_win_mid < l_track_data; cur_win_mid++)
+			// Go over all the positions as the middle of the filtering window: This must be 1 based.
+			for(int cur_win_mid = 1; cur_win_mid <= l_track_data; cur_win_mid++)
 			{
 				int cur_avg_start = (cur_win_mid > half_l_averaging)?(cur_win_mid - half_l_averaging):(1);
 				int cur_avg_end = (cur_win_mid + half_l_averaging <= l_track_data)?(cur_win_mid + half_l_averaging):(l_track_data);
@@ -987,7 +990,10 @@ if(__DUMP_FILTER_MSGS__)
 			fprintf(stderr, "Generating filtered minima regions from %d minima.\n", (int)minima->size());
 }
 
-			for(int i_m = 0; i_m < (int)minima->size()-1; i_m++)
+			for(int i_m = 0; 
+				minima->size() > 0 &&
+				i_m < (int)minima->size()-1; 
+				i_m++)
 			{
 				t_annot_region* new_minima = get_empty_region();
 				new_minima->chrom = t_string::copy_me_str("XX");
