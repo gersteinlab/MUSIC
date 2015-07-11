@@ -98,7 +98,11 @@ MUSIC -write_MS_decomposition -chip chip/dedup -control input/dedup -mapp Mappab
 The smoothed bedGraph files are usually very small in size and can easily be stored/transferred.
 
 <h2>Output format</h2>
-MUSIC output BED file has 9 columns:
+MUSIC output a large number of files that contain the SSERs at different scales (named SSER_....bed). 
+
+The final set of ERs are reported in two files: One is broadPeak formatted (http://genome.ucsc.edu/FAQ/FAQformat.html#format13)
+
+Other file is an extended BED formatted, which has 9 columns:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <font face="courier">
 [chromosome]	[start]	[end]	["."]	[log Q-value]	[Strand ("+")]	[Summit position]	[Mappable Trough Position]	[Fold Change]
@@ -138,6 +142,7 @@ the file. See below for complete automation (of p-value normalization window len
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <font face="courier">
 2. Using the p-value normalization window length in step 1, generate the scale specific ER scale spectrum: -get_scale_spectrum option.<br>
+
 </font><br>
 </div><br>
 MUSIC generates the spectrum (using the scale lengths 100 base pairs to 1 megabase. The output is reported in a text file where each 
@@ -150,10 +155,14 @@ row corresponds to a scale length. In each row, the coverage of the SSERs is giv
 where 2nd column is the scale length and 4th column is the coverage of the ERs that are specific to that scale. It is best to plot the spectrum, i.e., the scale lengths versus 
 the fraction of coverage of the SSERs (4th column in the file), then match the spectrum with the studied HMs in the 
 manuscript. If the spectrum is very different from all of the parametrized ChIP-Seq datasets, it is useful to generate the statistics on ER length distribution 
-and distribution of ER-ER distances and use the procedure described in the manuscript to select the scale levels.
-
+and distribution of ER-ER distances and use the procedure described in the manuscript to select the scale levels.<br>
+<br>
 The other parameters (namely, gamma and sigma) do not depend on experimental variables and are optimized for minimizing overmerging and maximizing sensitivity.
-We suggest using the values specified in the manuscript, i.e., gamma=4, sigma=1.5.
+We suggest using the values specified in the manuscript, i.e., gamma=4, sigma=1.5.<br>
+
+<h2>Important Note on Punctate ERs</h2>
+After this analysis, if the scale spectrum turns out to be punctate, i.e., the dominating scale is smaller than 10kb; there is a possibility that the p-value normalization window
+length parameter (l_p) yields low sensitivity. To compensate for this, we recommend running with default l_p parameter of MUSIC.
 
 <h2>Running MUSIC with Default Parameters and Automatic Selection of l_p Parameter: </h2>
 We just added a new script run_MUSIC.csh. This script automates the parameter selection for -l_p option. This script automates running MUSIC with default parameters. It simply calls MUSIC 
