@@ -98,11 +98,11 @@ MUSIC -write_MS_decomposition -chip chip/dedup -control input/dedup -mapp Mappab
 The smoothed bedGraph files are usually very small in size and can easily be stored/transferred.
 
 <h2>Output format</h2>
-MUSIC output a large number of files that contain the SSERs at different scales (named SSER_....bed). 
+MUSIC output a large number of files that contain the SSERs at different scales (named SSER_....bed). <br>
 
-The final set of ERs are reported in two files: One is broadPeak formatted (http://genome.ucsc.edu/FAQ/FAQformat.html#format13)
+The final set of ERs are reported in two files: One is broadPeak formatted (http://genome.ucsc.edu/FAQ/FAQformat.html#format13)<br>
 
-Other file is an extended BED formatted, which has 9 columns:
+Other file is in an extended BED format and has 9 columns:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <font face="courier">
 [chromosome]	[start]	[end]	["."]	[log Q-value]	[Strand ("+")]	[Summit position]	[Mappable Trough Position]	[Fold Change]
