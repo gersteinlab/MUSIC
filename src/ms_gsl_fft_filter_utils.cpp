@@ -997,8 +997,10 @@ if(__DUMP_FILTER_MSGS__)
 			{
 				t_annot_region* new_minima = get_empty_region();
 				new_minima->chrom = t_string::copy_me_str("XX");
-				new_minima->start = translate_coord(minima->at(i_m)->extrema_posn+1, CODEBASE_COORDS::start_base, BED_COORDS::start_base);
-				new_minima->end = translate_coord(minima->at(i_m+1)->extrema_posn+1, CODEBASE_COORDS::end_base, BED_COORDS::end_base);
+				//new_minima->start = translate_coord(minima->at(i_m)->extrema_posn+1, CODEBASE_COORDS::start_base, BED_COORDS::start_base);
+				//new_minima->end = translate_coord(minima->at(i_m+1)->extrema_posn+1, CODEBASE_COORDS::end_base, BED_COORDS::end_base);
+				new_minima->start = minima->at(i_m)->extrema_posn;
+				new_minima->end = minima->at(i_m+1)->extrema_posn;
 				new_minima->strand = '+';
 
 				// The maximum in the original signal is found within the effective data that contributes to the filtering process.

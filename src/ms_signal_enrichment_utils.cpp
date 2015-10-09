@@ -263,7 +263,10 @@ double get_poisson_thresholds_per_win(double* signal_profile,
 	double total_sig_in_cur_window = 0.0;
 	for(int i = win_start; i <= win_start + l_win; i++)
 	{
-		total_sig_in_cur_window += signal_profile[i];
+        if(i > 0 && i <= l_profile)
+        {
+			total_sig_in_cur_window += signal_profile[i];
+		}
 	} // i loop.
 
 	// Get the total amount of signal in the current window.
@@ -789,7 +792,7 @@ void tune_regions_per_window_average_at_boundaries(vector<t_annot_region*>* regi
 	double fdr, int l_win)
 {
 	// Go over all the windows.
-	int cur_win_start = 0;
+	int cur_win_start = 1;
 	int cur_l_win = l_win;
 
 	// Sort the regions.
@@ -855,10 +858,12 @@ void tune_regions_per_window_average_at_boundaries(vector<t_annot_region*>* regi
 				if(signal_profile[regions->at(i_reg)->start] >= cur_win_thresh)
 				{
 					regions->at(i_reg)->start -= 100;
+					regions->at(i_reg)->start = (regions->at(i_reg)->start < 1)?(1):(regions->at(i_reg)->start);
 				}
 				else if(signal_profile[regions->at(i_reg)->end] >= cur_win_thresh)
 				{
 					regions->at(i_reg)->end += 100;
+					regions->at(i_reg)->end = (regions->at(i_reg)->end > l_profile)?(l_profile):(regions->at(i_reg)->end);
 				}
 			}
 		} // i_reg loop.
@@ -872,7 +877,7 @@ vector<t_annot_region*>* prune_region_ends_per_window_average(vector<t_annot_reg
 	double fdr, int l_win)
 {
 		// Go over all the windows.
-		int cur_win_start = 0;
+		int cur_win_start = 1;
 		int cur_l_win = l_win;
 
 		// Sort the regions.
@@ -945,7 +950,9 @@ vector<t_annot_region*>* prune_region_ends_per_window_average(vector<t_annot_reg
 					bool passed_threshold = false;
 					for(int i_pr = pruned_start; i_pr <= pruned_end; i_pr++)
 					{
-						if(signal_profile[i_pr] > cur_win_thresh)
+						if(i_pr < l_profile &&
+							i_pr > 0 &&
+							signal_profile[i_pr] > cur_win_thresh)
 						{
 							passed_threshold = true;
 							pruned_start = i_pr;
@@ -955,7 +962,9 @@ vector<t_annot_region*>* prune_region_ends_per_window_average(vector<t_annot_reg
 
 					for(int i_pr = pruned_end; i_pr >= pruned_start; i_pr--)
 					{
-						if(signal_profile[i_pr] > cur_win_thresh)
+						if(i_pr < l_profile &&
+							i_pr > 0 &&
+							signal_profile[i_pr] > cur_win_thresh)
 						{
 							pruned_end = i_pr;
 							break;
@@ -1330,7 +1339,9 @@ if(__DUMP_SIGNAL_ENRICHMENT_MSGS__)
 		// Limit the maximum at 500.
 		max_sig = (max_sig > 500)?(500):(max_sig);
 
-		// Start thresholding over all possible thresholds.			
+		// Start thresholding over all possible thresholds.
+		int prev_pr_s = -1;
+		int prev_pr_e = -1;
 		for(int sig_thresh = min_sig; sig_thresh <= max_sig; sig_thresh++)
 		{
 			// Threshold the ends.
@@ -1356,6 +1367,14 @@ if(__DUMP_SIGNAL_ENRICHMENT_MSGS__)
 					break;
 				}
 			} // i_pr loop.
+
+            if(prev_pr_s == pruned_start && prev_pr_e == pruned_end)
+            {
+                    continue;
+            }
+
+            prev_pr_s = pruned_start;
+            prev_pr_e = pruned_end;
 
 			// Get the binomial p-value for current region.
 			double cur_pruned_pvalue = get_binomial_pvalue_per_region(signal_profile, control_profile, pruned_start, pruned_end, log_factorials, l_fragment, false, 0);

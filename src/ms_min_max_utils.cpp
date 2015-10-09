@@ -213,95 +213,92 @@ void get_extrema_per_plateaus(double* data, int l_signal,
 	int i_scale,
 	double zero_deriv)
 {
-	// Go over all the data, identify the plateaus.
-	//
+	vector<t_extrema_node*>* extrema_nodes = new vector<t_extrema_node*>();
 
-	////double* abs_deriv = new double[l_signal];
-	//vector<double>* abs_deriv = new vector<double>(l_signal, 0.0);
-
+	double* deriv = new double[l_signal + 2];
+	//vector<int>* plateau_locs = new vector<int>();
 	//// Following can be implemented with 
-	////abs_deriv[0] = 0;
-	//abs_deriv->push_back(0);
+	//deriv[0] = 0;
 	//for(int i = 1; i < l_signal; i++)
 	//{
-	//	abs_deriv->push_back(fabs(data[i] - data[i-1]));
-	//} // i loop.
+	//	deriv[i] = data[i] - data[i-1];
 
-	//sort(abs_deriv->begin(), abs_deriv->end());
-
-	//zero_deriv = abs_deriv->at((int)(l_signal * 0.8));
-
-	//delete abs_deriv;
-
-	//t_1D_hist* deriv_hist = get_1D_dist(abs_deriv, l_signal, 50);
-
-	//int cumul_sum = 0;
-	//int i_satisfying_bin = 0;
-	//for(int i_bin = 0; i_bin < l_signal; i_bin++)
-	//{
-	//	cumul_sum += deriv_hist->counts[i_bin];
-
-	//	// Put 20% of the positions into fast changing positions.
-	//	if(cumul_sum > (0.8 * l_signal))
+	//	if(fabs(deriv[i]) < zero_deriv)
 	//	{
-	//		i_satisfying_bin = i_bin;
+	//		//fprintf(stderr, "Pleateau loc: %d\n", i);
+	//		plateau_locs->push_back(i);
+	//	}
+	//	else
+	//	{
 	//	}
 	//} // i loop.
 
-	//delete [] abs_deriv;
-	//zero_deriv = deriv_hist->data_starts[i_satisfying_bin];
-	//fprintf(stderr, "zero_deriv = %.5f\n", zero_deriv);	
-	//getc(stdin);
+	//// Form the plateau signal.
+	//vector<t_plateau*>* plateaus = new vector<t_plateau*>();
 
-	vector<t_extrema_node*>* extrema_nodes = new vector<t_extrema_node*>();
+	//int* plateau_signal = new int[l_signal];
+	//memset(plateau_signal, 0, sizeof(int) * l_signal);
+	//int n_pl_pts = (int)plateau_locs->size(); 
+	//int i = 0; 
+	//while(i < n_pl_pts)
+	//{
+	//	int cur_start = plateau_locs->at(i);
+	//	int cur_end = plateau_locs->at(i);
 
-	double* deriv = new double[l_signal];
-	vector<int>* plateau_locs = new vector<int>();
-	// Following can be implemented with 
+	//	while(i+1 < n_pl_pts &&
+	//		plateau_locs->at(i+1) == plateau_locs->at(i)+1)
+	//	{			
+	//		cur_end = plateau_locs->at(i+1);
+
+	//		i++;
+	//	} // plateau finder loop.
+
+	//	i++;
+
+	//	t_plateau* new_plateau = new t_plateau();
+	//	new_plateau->start = cur_start;
+	//	new_plateau->end = cur_end;
+	//	//fprintf(stderr, "Pleateau: %d-%d\n", cur_start, cur_end);
+
+	//	plateaus->push_back(new_plateau);
+	//} // i loop.	
+
 	deriv[0] = 0;
-	for(int i = 1; i < l_signal; i++)
+	for(int i = 1; i <= l_signal; i++)
 	{
-		deriv[i] = data[i] - data[i-1];
+			deriv[i] = data[i] - data[i-1];
+	} // i loop.
 
+	vector<t_plateau*>* plateaus = new vector<t_plateau*>();
+
+	int i = 1;
+	int cur_start = -1;
+	int cur_end = -1;
+	while(i <= l_signal)
+	{
+		// Are we starting a new plateau here?
 		if(fabs(deriv[i]) < zero_deriv)
 		{
-			//fprintf(stderr, "Pleateau loc: %d\n", i);
-			plateau_locs->push_back(i);
+			// Plateau: Get the beginning and the end.
+			cur_start = i;
+			cur_end = i;
+			while(i <= l_signal &&
+					fabs(deriv[i]) < zero_deriv)
+			{
+				cur_end = i;
+				i++;
+			} // i loop.
+
+			t_plateau* new_plateau = new t_plateau();
+			new_plateau->start = cur_start;
+			new_plateau->end = cur_end;
+			plateaus->push_back(new_plateau);
 		}
 		else
 		{
+			i++;
 		}
 	} // i loop.
-
-	// Form the plateau signal.
-	vector<t_plateau*>* plateaus = new vector<t_plateau*>();
-
-	int* plateau_signal = new int[l_signal];
-	memset(plateau_signal, 0, sizeof(int) * l_signal);
-	int n_pl_pts = (int)plateau_locs->size(); 
-	int i = 0; 
-	while(i < n_pl_pts)
-	{
-		int cur_start = plateau_locs->at(i);
-		int cur_end = plateau_locs->at(i);
-
-		while(i+1 < n_pl_pts &&
-			plateau_locs->at(i+1) == plateau_locs->at(i)+1)
-		{			
-			cur_end = plateau_locs->at(i+1);
-
-			i++;
-		} // plateau finder loop.
-
-		i++;
-
-		t_plateau* new_plateau = new t_plateau();
-		new_plateau->start = cur_start;
-		new_plateau->end = cur_end;
-		//fprintf(stderr, "Pleateau: %d-%d\n", cur_start, cur_end);
-
-		plateaus->push_back(new_plateau);
-	} // i loop.	
 
 	// Go over all the plateaus and set the max/min ver plateau.
 	int l_win = 1;
@@ -485,12 +482,12 @@ if(__DUMP_MIN_MAX_UTILS_MSGS__)
 
 	// Free memory. These are pretty large chunks of memory.
 	delete [] deriv;
-	delete [] plateau_signal;
+	//delete [] plateau_signal;
 	for(int i_p = 0; i_p < (int)plateaus->size(); i_p++)
 	{
 		delete(plateaus->at(i_p));
 	} // i_p loop.
-	delete plateau_locs;
+	//delete plateau_locs;
 }
 
 

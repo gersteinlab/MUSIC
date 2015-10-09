@@ -28,6 +28,21 @@ bool __DUMP_PEAK_CALLING_UTILS_MSGS__ = false;
 #define __UCHAR_MAPPABILITY__
 #undef __DOUBLE_MAPPABILITY__
 
+bool __DBG__ = false;
+int g_dbg_l_new_profile = 10*1000*1000;
+int g_dbg_base_posn = 40*1000*1000;
+double* replace_profiles_for_debug(double* signal_profile, int l_profile, int base_posn, int l_new_profile)
+{
+	fprintf(stderr, "Replacing signal profile with %d long profile.\n", l_new_profile);
+	double* _signal_profile = new double[l_new_profile + 2];
+	for(int i = base_posn; i <= base_posn + l_new_profile; i++)
+	{
+		_signal_profile[i-base_posn+1] = signal_profile[i];
+	}
+
+	return(_signal_profile);
+}
+
 double* load_normalized_multimappability_profile(char* mapability_signal_profile_fp, int& l_mapability_profile)
 {
 	double* mapability_signal_profile = NULL;
@@ -599,20 +614,20 @@ void get_peaks(char* chip_reads_dir,
 			continue;
 		}
 
-		//// TODO::Count the reads and generate the F/R ratio.
-		//int n_F = 0;
-		//int n_R = 0;
-		//count_preprocessed_reads(cur_chr_chip_reads_fp, n_F, n_R);
-		//if(n_F == 0 || n_R == 0)
-		//{
-		//	min_per_strand_evennes_fraction = 0;
-		//}
-		//else
-		//{
-		//	min_per_strand_evennes_fraction = MIN(((double)n_F/n_R), ((double)n_R/n_F)) / 2;
-		//}
+		// TODO::Count the reads and generate the F/R ratio.
+		int n_F = 0;
+		int n_R = 0;
+		count_preprocessed_reads(cur_chr_chip_reads_fp, n_F, n_R);
+		if(n_F == 0 || n_R == 0)
+		{
+			min_per_strand_evennes_fraction = 0;
+		}
+		else
+		{
+			min_per_strand_evennes_fraction = MIN(((double)n_F/n_R), ((double)n_R/n_F)) / 2;
+		}
 
-		//fprintf(stderr, "Evenness fraction is %.3f\n", min_per_strand_evennes_fraction);
+		fprintf(stderr, "Chromosomal cross strand signal fraction threshold is %.3f\n", min_per_strand_evennes_fraction);
 
 		buffer_per_nucleotide_profile_no_buffer(cur_chr_chip_reads_fp, l_fragment, 
 			buffered_signal_profile, NULL, NULL,
@@ -648,6 +663,18 @@ void get_peaks(char* chip_reads_dir,
 			control_profile[i] = buffered_control_profile[i];
 		} // i loop.
 		delete [] buffered_control_profile;
+
+if(__DBG__)
+{
+		double* new_signal_profile = replace_profiles_for_debug(signal_profile, l_profile, g_dbg_base_posn, g_dbg_l_new_profile);
+		double* new_control_profile = replace_profiles_for_debug(control_profile, l_control, g_dbg_base_posn, g_dbg_l_new_profile);
+		delete [] signal_profile;
+		delete [] control_profile;
+		signal_profile = new_signal_profile;
+		control_profile = new_control_profile;
+		l_profile = g_dbg_l_new_profile;
+		l_control = g_dbg_l_new_profile;
+}
 		
 		// Load and process the mapability profile.
 		char mapability_signal_profile_fp[1000];
@@ -658,6 +685,15 @@ void get_peaks(char* chip_reads_dir,
 		{
 			int l_mapability_profile = 0;
 			double* mapability_signal_profile = load_normalized_multimappability_profile(mapability_signal_profile_fp, l_mapability_profile);
+
+if(__DBG__)
+{
+				// Replace the mapp profile.
+				double* new_mapp_profile = replace_profiles_for_debug(mapability_signal_profile, l_mapability_profile, g_dbg_base_posn, g_dbg_l_new_profile);
+				delete [] mapability_signal_profile;
+				mapability_signal_profile = new_mapp_profile;
+				l_mapability_profile = g_dbg_l_new_profile;
+}
 
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 			fprintf(stderr, "Smoothing the signal profile.\n");
@@ -1120,7 +1156,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 				//bool in_plateau = false;
 
 				// Following updates the ER information.
-				for(int i = strand_filtered_peaks->at(i_reg)->start; i <= strand_filtered_peaks->at(i_reg)->end; i++)
+				for(int i = strand_filtered_peaks->at(i_reg)->start+1; i <= strand_filtered_peaks->at(i_reg)->end; i++)
 				{
 					total_profile_signal += floor(signal_profile[i]);
 					total_control_signal += floor(control_profile[i]);
@@ -1224,6 +1260,14 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 			if(check_file(mapability_signal_profile_fp))
 			{
 				mapability_signal_profile = load_normalized_multimappability_profile(mapability_signal_profile_fp, l_mapability_profile);
+
+if(__DBG__)
+{
+					double* new_mapp_profile = replace_profiles_for_debug(mapability_signal_profile, l_mapability_profile, g_dbg_base_posn, g_dbg_l_new_profile);
+					l_mapability_profile = g_dbg_l_new_profile;
+					delete [] mapability_signal_profile;
+					mapability_signal_profile = new_mapp_profile;
+}
 			}
 
 			for(int i_reg = 0; i_reg < (int)strand_filtered_peaks->size(); i_reg++)
@@ -1536,7 +1580,19 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		sprintf(rev_strand_signal_fp, "%s_rev_strand.bin", chr_ids->at(i_chr));
 		dump_per_nucleotide_binary_profile(reverse_signal, l_profile, rev_strand_signal_fp);
 }
-			
+
+if(__DBG__)
+{
+		// Replace fore/rev signals.
+		double* new_f_signal_profile = replace_profiles_for_debug(forward_signal, l_profile, g_dbg_base_posn, g_dbg_l_new_profile);
+		double* new_r_signal_profile = replace_profiles_for_debug(reverse_signal, l_profile, g_dbg_base_posn, g_dbg_l_new_profile);
+		delete [] forward_signal;
+		delete [] reverse_signal;
+		forward_signal = new_f_signal_profile;
+		reverse_signal = new_r_signal_profile;
+		l_profile = g_dbg_l_new_profile;
+}
+
 		vector<t_annot_region*>* cur_chr_regs = get_regions_per_chromosome(peak_regions, chr_ids->at(i_chr));
 
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
@@ -1636,6 +1692,17 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		buffer_per_nucleotide_profile_no_buffer(cur_chr_chip_reads_fp, l_fragment, 
 			NULL, forward_signal, reverse_signal,
 			l_buffer, l_profile);
+
+if(__DBG__)
+{
+		double* new_f_signal_profile = replace_profiles_for_debug(forward_signal, l_profile, g_dbg_base_posn, g_dbg_l_new_profile);
+		double* new_r_signal_profile = replace_profiles_for_debug(reverse_signal, l_profile, g_dbg_base_posn, g_dbg_l_new_profile);
+		delete [] forward_signal;
+		delete [] reverse_signal;
+		forward_signal = new_f_signal_profile;
+		reverse_signal = new_r_signal_profile;
+		l_profile = g_dbg_l_new_profile;
+}
 
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 {

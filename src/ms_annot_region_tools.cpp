@@ -2278,7 +2278,7 @@ t_annot_region* get_empty_region()
 	new_reg->strand = 0;
 	new_reg->intervals = 0;
 	new_reg->name = 0;
-	new_reg->data = 0;
+	new_reg->data = NULL;
 	new_reg->sort_info = NULL;
 
 	return(new_reg);

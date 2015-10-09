@@ -59,15 +59,18 @@ if(__DUMP_INPUT_NORMALIZATION_MSGS__)
 	f_per_win_vals = fopen("per_win_vals.txt", "w");
 	for(int i_win = 0; i_win < n_wins_2_process; i_win++)
 	{
-		int cur_win_start = l_win * i_win;
+		int cur_win_start = l_win * i_win + 1;
 		int cur_win_end = (i_win + 1) * l_win;		
 
 		double cur_total_prof1 = 0;
 		double cur_total_prof2 = 0;
 		for(int i_nuc = cur_win_start; i_nuc < cur_win_end; i_nuc++)
 		{
-			cur_total_prof1 += signal_profile1[i_nuc];
-			cur_total_prof2 += signal_profile2[i_nuc];
+			if(i_nuc < l_prof1 && i_nuc < l_prof2)
+			{
+				cur_total_prof1 += signal_profile1[i_nuc];
+				cur_total_prof2 += signal_profile2[i_nuc];
+			}
 		} // i_nuc loop.
 
 		if(cur_total_prof1 > 0 && cur_total_prof2 > 0)
