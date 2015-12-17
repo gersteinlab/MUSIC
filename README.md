@@ -107,10 +107,12 @@ The final set of ERs are reported in two files: One is broadPeak formatted (http
 Other file is in an extended BED format and has 9 columns:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <font face="courier">
-[chromosome]	[start]	[end]	["."]	[log Q-value]	[Strand ("+")]	[Summit position]	[Mappable Trough Position]	[Fold Change]
+[chromosome]	[start]	[end]	["."]	[log_10 Q-value]	[Strand ("+")]	[Summit position]	[Mappable Trough Position]	[Fold Change]
 </font>
 </div><br>
 The entries are sorted with respect to increasing Q-values.
+
+Note that MUSIC reports log_10(Q-values) and not -log_10(Q-value).
 
 <h2>Parameter Selection Guideline for the Studied ChIP-Seq Datasets</h2>
 MUSIC has a set of default parameter sets for broad marks (like H3K36me3, H3K27me3), punctate marks (H3K4me3), and point binding (like transcription factors) which work well in most 
