@@ -42,54 +42,6 @@ int map_nuc_to_sig(char nuc)
 	}
 }
 
-void get_numerized_sequence_signals(char* sequence, int l_signal,
-	double* walk_signal,
-	double* nucleotide_signal,
-	double* gc_content_signal)
-{
-	fprintf(stderr, "Generating the sequence signal for %d nucleotides.\n", l_signal);
-
-	double gc_count = 0;
-	int cur_cumul_walk_sig = 0;
-	double cur_gc_content = 0;
-	double l_sequenced = 0;
-	for(int i_nuc = 0; i_nuc < l_signal; i_nuc++)
-	{
-		cur_gc_content = 0;
-		if(toupper(sequence[i_nuc]) != 'N')
-		{
-			l_sequenced++;
-
-			if(toupper(sequence[i_nuc]) == 'C' || 
-						toupper(sequence[i_nuc]) == 'G')
-			{
-				cur_gc_content = 1;
-				gc_count++;
-			}
-		}
-
-		if(toupper(sequence[i_nuc]) == 'A' || toupper(sequence[i_nuc]) == 'G' || 
-		toupper(sequence[i_nuc]) == 'C' || toupper(sequence[i_nuc]) == 'T' ||
-		toupper(sequence[i_nuc]) == 'U')
-		{
-			if(toupper(sequence[i_nuc]) == 'A' || toupper(sequence[i_nuc]) == 'G')
-			{
-				cur_cumul_walk_sig--;
-			}
-			else
-			{
-				cur_cumul_walk_sig++;
-			}
-		}
-
-		gc_content_signal[i_nuc+1] = cur_gc_content;
-		walk_signal[i_nuc+1] = cur_cumul_walk_sig;
-		nucleotide_signal[i_nuc+1] = nuc_2_num(toupper(sequence[i_nuc]));
-	} // i_nuc loop.
-
-	fprintf(stderr, "GC percentage: %lf\n", gc_count / l_sequenced);
-}
-
 // Given the 0-based seq_i indexing, returns the genome index with the assumed index convention.
 bool get_genome_i_per_seq_i(char strand, 
 	int genome_start, 

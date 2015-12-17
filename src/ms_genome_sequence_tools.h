@@ -25,11 +25,6 @@ char* load_binary_sequence_file(char* bin_seq_fp, int& l_seq);
 
 //char* numerize_sequence_signal(char* seq_signal, int l_seq);
 
-void get_numerized_sequence_signals(char* sequence, int l_signal,
-	double* walk_signal,
-	double* nucleotide_signal,
-	double* gc_content_signal);
-
 bool check_kmer_composition(int* num_seq, int left_win_pos, int k);
 
 void get_kmer_signal_per_numerized_sequence_signal(double* numerized_sequence_signal, int l_signal, double* kmer_signal, int k);

@@ -20,6 +20,22 @@ vector<double*>* multiscale_median_filter_data(double* track_data,
 	vector<vector<t_annot_region*>*>* per_scale_maxima_regions,
 	const char* op_file_prefix);
 
+vector<double*>* multiscale_avg_filter_data(double* track_data, 
+	int l_track_data, 
+	double scale_start, double scale_end, double log_scale_step, 
+	vector<double>* scales_per_i_scale,
+	bool dump_decomposition,
+	bool compute_extrema_regions,
+	bool dump_extrema_regions,
+	vector<vector<t_annot_region*>*>* per_scale_minima_regions, 
+	vector<vector<t_annot_region*>*>* per_scale_maxima_regions,
+	char* op_file_prefix);
+
+double* mean_filter_data(double* track_data,
+						int l_track_data, 
+						int l_averaging_win,
+						int skip_value); // This is the value to be skipped from the window values.
+
 double* median_filter_data(double* track_data,
 	int l_track_data, 
 	int l_averaging_win,

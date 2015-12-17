@@ -11,7 +11,7 @@ and outputs: (1) Enriched regions at multiple scales, (2) Significantly enriched
 <br><br>
 MUSIC is an algorithm for identification of enriched regions at multiple scales in the read depth signals from ChIP-Seq experiments.<br>It takes as input: <br>
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
-- Mapped ChIP and control reads,<br>
+- Mapped ChIP and control reads (optional),<br>
 - Smoothing scale window lengths (in base pairs),
 </div><br>
 and outputs:<br>
@@ -19,12 +19,12 @@ and outputs:<br>
 - Enriched regions at multiple scales,<br>
 - Significantly enriched regions from all the scales.
 </div>
-<!---------- <h2>Motivation: </h2>
-Unlike transcription factor binding, the interpretation of enrichments in ChIP-Seq assays for diffuse binding proteins<br>
-and histone modifications must be done --->
 <br>
 Unlike other ER identification methods, MUSIC allows analyzing the scale length spectrum of ChIP-Seq datasets and also selecting a user specific slice in the 
 scale length spectrum with custom granularity and generates the enriched regions at each length scale.
+
+MUSIC does not strictly require a control experiment (for example mock IP, input DNA) to be performed. It is, however, strongly advised to generate control datasets matching 
+the sample of interest (See Landt et al 2012).
 
 <h2>Download and Installation</h2>
 You can download MUSIC C++ code <a href="https://github.com/gersteinlab/MUSIC/archive/master.zip">here</a>. There are no dependencies for building MUSIC. After download, type:
@@ -73,6 +73,8 @@ MUSIC -get_multiscale_broad_ERs -chip chip/dedup -control input/dedup -mapp Mapp
 </div><br>
 This code tells MUSIC to identify the enriched regions starting from 1kb smoothing window length upto 16kb with multiplicative factor of 1.5 using the default
 parameters for the remaining parameters. The ERs for each scale are dumped. 
+
+In case there is no control, skip the option that specifies preprocessed control reads directory (i.e., '-control input/dedup')
 
 There are 3 different ER identification modes by default. 
 <h3>-get_TF_peaks</h3>

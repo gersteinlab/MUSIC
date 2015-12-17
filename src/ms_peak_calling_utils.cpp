@@ -31,6 +31,7 @@ bool __DUMP_PEAK_CALLING_UTILS_MSGS__ = false;
 bool __DBG__ = false;
 int g_dbg_l_new_profile = 10*1000*1000;
 int g_dbg_base_posn = 40*1000*1000;
+
 double* replace_profiles_for_debug(double* signal_profile, int l_profile, int base_posn, int l_new_profile)
 {
 	fprintf(stderr, "Replacing signal profile with %d long profile.\n", l_new_profile);
@@ -41,6 +42,329 @@ double* replace_profiles_for_debug(double* signal_profile, int l_profile, int ba
 	}
 
 	return(_signal_profile);
+}
+
+double* get_control_per_chip_profile(double* signal_profile, int l_profile, int l_p_win, int l_fragment)
+{
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+{
+	fprintf(stderr, "Generating smoothed track for %d values.\n", l_profile);
+}
+
+	int l_average = 1000*1000;
+	double* window_averaged_signal_profile = mean_filter_data(signal_profile,
+																l_profile, 
+																l_average,
+																-1);
+
+	// Ceil the profile.
+	for(int i = 1; i <= l_profile; i++)
+	{
+		//window_averaged_signal_profile[i] = ceil(window_averaged_signal_profile[i]);
+		if(window_averaged_signal_profile[i] < 1)
+		{
+			window_averaged_signal_profile[i] = 1;
+		}
+	} // i loop.
+
+	int n_wins = l_profile / l_p_win;
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+{
+	fprintf(stderr, "%d windows.\n", n_wins);
+}
+
+	double* avg_per_l_p_win_signal = new double[n_wins+2];
+	double* avg_per_l_p_win_control = new double[n_wins+2];
+	for(int i_win = 0; i_win < n_wins; i_win++)
+	{
+		avg_per_l_p_win_signal[i_win] = 0;
+		avg_per_l_p_win_control[i_win] = 0;
+
+		for(int i = i_win*l_p_win+1; i < i_win*l_p_win + l_p_win; i++)
+		{
+			avg_per_l_p_win_signal[i_win] += signal_profile[i];
+			avg_per_l_p_win_control[i_win] += window_averaged_signal_profile[i];
+		} // i loop.
+	} // i_win loop.
+
+	// Go over per signal values, 
+	double* log_factorials = buffer_log_factorials(1000*1000);
+	
+	bool constraint_satisfied = false;
+	for(int iter_i = 0;
+		!constraint_satisfied
+		; iter_i++)
+	{
+		double n_p_val_sig_FC_sig = 0;
+		double n_p_val_sig_FC_insig = 0;
+		double n_p_val_insig_FC_sig = 0;
+		double n_p_val_insig_FC_insig = 0;
+		for(int i_win = 0; i_win < n_wins; i_win++)
+		{
+			if(avg_per_l_p_win_signal[i_win] < l_p_win ||
+			avg_per_l_p_win_control[i_win] < l_p_win)
+			{
+				continue;
+			}
+
+			//double log_p_val = get_binomial_pvalue_per_region(signal_profile, window_averaged_signal_profile,
+			//													i_win*l_p_win+1, i_win*l_p_win+l_p_win,
+			//													log_factorials, 1, false, 0);
+
+			double log_p_val = get_binomial_p_val_per_enriched_background_values(avg_per_l_p_win_signal[i_win] / l_fragment, 
+																				avg_per_l_p_win_control[i_win] / l_fragment, 
+																				log_factorials);
+
+			if(log_p_val < log(0.05))
+			{
+				if(avg_per_l_p_win_signal[i_win] / avg_per_l_p_win_control[i_win] > 2)
+				{
+					n_p_val_sig_FC_sig++;
+				}
+				else if(avg_per_l_p_win_signal[i_win] / avg_per_l_p_win_control[i_win] < 1.5)
+				{
+					n_p_val_sig_FC_insig++;
+				}
+				else
+				{
+					// The stuff that is insignificantly enriched, but FC is not conclusive.
+				}
+			} // p-val significant check.
+			else
+			{
+				if(avg_per_l_p_win_signal[i_win] / avg_per_l_p_win_control[i_win] > 2)
+				{
+					n_p_val_insig_FC_sig++;
+				}
+				else if(avg_per_l_p_win_signal[i_win] / avg_per_l_p_win_control[i_win] < 1.5)
+				{
+					n_p_val_insig_FC_insig++;
+				}
+				else
+				{
+					// The stuff that is insignificantly enriched, but FC is not conclusive.
+				}
+			} // p-val insignificant check.
+		} // i_win loop.
+
+		// Stopping criteria:
+		double p_val_fpr_estimate = n_p_val_insig_FC_sig / (n_p_val_sig_FC_sig + n_p_val_insig_FC_sig);
+		double FC_fpr_estimate = n_p_val_sig_FC_insig / (n_p_val_sig_FC_sig + n_p_val_sig_FC_insig); 
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+{
+		fprintf(stderr, "%d. iteration, %lf/%lf=%lf, %lf/%lf=%lf\n", iter_i, 
+			n_p_val_insig_FC_sig, (n_p_val_sig_FC_sig + n_p_val_insig_FC_sig), p_val_fpr_estimate, 
+			n_p_val_sig_FC_insig, (n_p_val_sig_FC_sig + n_p_val_sig_FC_insig), FC_fpr_estimate);
+}
+
+		// Are we in good region? If so update the control to create a more stringent background.
+		if(p_val_fpr_estimate < .10 &&
+			FC_fpr_estimate < .10)
+		{
+			// Update the profile.
+			for(int i = 1; i < l_profile; i++)
+			{
+				window_averaged_signal_profile[i] += 1;
+			} // i loop.
+
+			// Update the per window control signal.
+			for(int i_win = 0; i_win < n_wins; i_win++)
+			{
+				avg_per_l_p_win_control[i_win] += l_p_win;
+			} // i_win loop.			
+		}
+		else
+		{
+			break;
+		}
+	} // signal update loop.
+
+	delete [] log_factorials;
+	delete [] avg_per_l_p_win_signal;
+	delete [] avg_per_l_p_win_control;
+
+	return(window_averaged_signal_profile);
+}
+
+vector<t_annot_region*>* merge_SSERs_2_features_per_chromosome(vector<t_annot_region*>* top_scale_merged_regions,
+																vector<vector<t_annot_region*>*>* per_scale_SSERs, 
+																double* signal_profile, int l_chip_signal,
+																double* control_profile, int l_control_signal,
+																double max_p_val,
+																int l_fragment, 
+																int l_p_val_norm_win)
+{
+	// Initialize the list of regions.
+	for(int i_reg = 0; i_reg < (int)top_scale_merged_regions->size(); i_reg++)
+	{
+		vector<t_annot_region*>** per_scale_merged_regions = new vector<t_annot_region*>*[per_scale_SSERs->size() + 2];
+		for(int scale_i = 0; scale_i < (int)per_scale_SSERs->size(); scale_i++)
+		{
+			per_scale_merged_regions[scale_i] = new vector<t_annot_region*>();
+		} // scale_i
+
+		top_scale_merged_regions->at(i_reg)->data = per_scale_merged_regions;
+	} // i_reg loop.
+
+	// Merge SSERs cumulatively.
+	double max_grand_total_int = 1000*1000*10;
+	double* log_factorials = buffer_log_factorials((int)(max_grand_total_int+20));
+	for(int scale_i = 0; scale_i < (int)per_scale_SSERs->size(); scale_i++)
+	{
+		fprintf(stderr, "Generating cumulative merged regions @ scale %d                  \r", scale_i);
+
+		// If there are no SSERs in this scale, dont process.
+		if(per_scale_SSERs->at(scale_i)->size() == 0)
+		{
+			continue;
+		}
+
+		// Pool all the regions upto this scale.
+		vector<t_annot_region*>* SSERs_upto_cur_scale = new vector<t_annot_region*>();
+		for(int scale_j = 0; scale_j <= scale_i; scale_j++)
+		{
+			SSERs_upto_cur_scale->insert(SSERs_upto_cur_scale->end(), per_scale_SSERs->at(scale_j)->begin(), per_scale_SSERs->at(scale_j)->end());
+		} // scale_j 
+
+		vector<t_annot_region*>* merged_SSERs_upto_cur_scale = merge_annot_regions(SSERs_upto_cur_scale, 1);
+
+		fprintf(stderr, "Computing p-values @ scale %d                  \r", scale_i);
+		for(int i_reg = 0; i_reg < (int)merged_SSERs_upto_cur_scale->size(); i_reg++)
+		{
+			double cur_region_log_p_val = 0;
+			if(merged_SSERs_upto_cur_scale->at(i_reg)->end < l_control_signal && 
+				merged_SSERs_upto_cur_scale->at(i_reg)->end < l_chip_signal)
+			{
+				cur_region_log_p_val = get_binomial_pvalue_per_region_neighborhood_window_control(signal_profile, control_profile, 
+																	merged_SSERs_upto_cur_scale->at(i_reg)->start, 
+																	merged_SSERs_upto_cur_scale->at(i_reg)->end,
+																	log_factorials,
+																	l_fragment, 
+																	true, 
+																	l_p_val_norm_win, 
+																	l_chip_signal, 
+																	l_control_signal,
+																	1);
+			}
+
+			t_significance_info* sig_info = new t_significance_info();
+			sig_info->log_p_val = cur_region_log_p_val;
+			merged_SSERs_upto_cur_scale->at(i_reg)->data = sig_info;
+		} // i_reg loop.
+
+		vector<t_annot_region*>* cur_scale_intersects = intersect_annot_regions(top_scale_merged_regions, merged_SSERs_upto_cur_scale, true);
+		for(int i_int = 0; i_int < (int)cur_scale_intersects->size(); i_int++)
+		{
+			t_intersect_info* int_info = (t_intersect_info*)(cur_scale_intersects->at(i_int)->data);
+			t_annot_region* cur_top_scale_merged_reg = int_info->src_reg;
+			t_annot_region* merged_SSER_reg_upto_cur_scale = int_info->dest_reg;
+
+			vector<t_annot_region*>* cur_scale_regs = ((vector<t_annot_region*>**)(cur_top_scale_merged_reg->data))[scale_i];
+			t_annot_region* dup_reg = duplicate_region(merged_SSER_reg_upto_cur_scale);
+			dup_reg->data = merged_SSER_reg_upto_cur_scale->data;
+			cur_scale_regs->push_back(dup_reg);
+
+			delete int_info;
+		} // i_int loop.
+
+		// Free memory.
+		delete_annot_regions(cur_scale_intersects);
+		delete_annot_regions(merged_SSERs_upto_cur_scale);
+		delete SSERs_upto_cur_scale;
+	} // scale_i loop.
+	delete [] log_factorials;
+
+	// For each region at the highest scale, compute p-value, if not significant, fall down to smaller scale merged ERs. If there are significant ERs, use those.
+	//FILE* f_merging_info = fopen("merging_info.bed", "w");
+	vector<t_annot_region*>* merged_SSERs = new vector<t_annot_region*>();
+	for(int i_reg = 0; i_reg < (int)top_scale_merged_regions->size(); i_reg++)
+	{
+		vector<t_annot_region*>** cur_regs_per_scale_SSERs = (vector<t_annot_region*>**)(top_scale_merged_regions->at(i_reg)->data); 
+
+		//Start from top scale and check whether there is a significant merged SSER.
+		bool found_cur_reg_scale = false;
+		int found_scale_i = 0;
+		for(int scale_i = per_scale_SSERs->size()-1; scale_i >= 0; scale_i--)
+		{
+			for(int cur_scale_reg_i = 0; cur_scale_reg_i < (int)(cur_regs_per_scale_SSERs[scale_i]->size()); cur_scale_reg_i++)
+			{
+				t_annot_region* cur_reg_per_scale_SSERs = cur_regs_per_scale_SSERs[scale_i]->at(cur_scale_reg_i);
+				t_significance_info* sig_info = (t_significance_info*)(cur_reg_per_scale_SSERs->data);
+				if(sig_info->log_p_val < max_p_val)
+				{
+					// Significant region. Break.
+					found_cur_reg_scale = true;
+					break;
+				}
+			} // cur_scale_reg_i optino.
+
+			if(found_cur_reg_scale)
+			{
+				for(int cur_scale_reg_i = 0; cur_scale_reg_i < (int)(cur_regs_per_scale_SSERs[scale_i]->size()); cur_scale_reg_i++)
+				{
+					t_annot_region* cur_reg_per_scale_SSERs = cur_regs_per_scale_SSERs[scale_i]->at(cur_scale_reg_i);
+					//t_significance_info* sig_info = (t_significance_info*)(cur_reg_per_scale_SSERs->data);
+					merged_SSERs->push_back(duplicate_region(cur_reg_per_scale_SSERs));
+
+					//fprintf(f_merging_info, "%s\t%d\t%d\t%s\t%d\t%d\t%lf\n", top_scale_merged_regions->at(i_reg)->chrom, 
+					//	top_scale_merged_regions->at(i_reg)->start,
+					//	top_scale_merged_regions->at(i_reg)->end, 
+					//	cur_reg_per_scale_SSERs->chrom, 
+					//	cur_reg_per_scale_SSERs->start, 
+					//	cur_reg_per_scale_SSERs->end,
+					//	sig_info->log_p_val);
+				} // cur_scale_reg_i loop.
+
+				found_scale_i = scale_i;
+
+				break;
+			}
+		} // scale_i loop.
+
+		if(!found_cur_reg_scale)
+		{
+			fprintf(stderr, "Could not find a significant scale for %s:%d-%d\n", top_scale_merged_regions->at(i_reg)->chrom, 
+				top_scale_merged_regions->at(i_reg)->start, top_scale_merged_regions->at(i_reg)->end);
+			exit(0);
+		}
+
+		//else if(found_scale_i != per_scale_SSERs->size()-1)
+		//{
+		//	fprintf(stderr, "Significant scale not top %s:%d-%d\n", top_scale_merged_regions->at(i_reg)->chrom,
+		//			top_scale_merged_regions->at(i_reg)->start, top_scale_merged_regions->at(i_reg)->end);
+		//			getc(stdin);
+		//}
+	} // i_reg loop.
+
+	//fclose(f_merging_info);
+
+	// Free the merged region list.
+	for(int i_reg = 0; i_reg < (int)top_scale_merged_regions->size(); i_reg++)
+	{
+		vector<t_annot_region*>** per_scale_merged_regions = (vector<t_annot_region*>**)(top_scale_merged_regions->at(i_reg)->data);
+		for(int scale_i = 0; scale_i < (int)per_scale_SSERs->size(); scale_i++)
+		{
+			for(int cur_scale_reg_i = 0; cur_scale_reg_i < (int)(per_scale_merged_regions[scale_i]->size()); cur_scale_reg_i++)
+			{
+				t_significance_info* sig_info = (t_significance_info*)(per_scale_merged_regions[scale_i]->at(cur_scale_reg_i)->data);
+				delete sig_info;
+			} // i_reg loop.
+
+			if(per_scale_merged_regions[scale_i]->size() > 0)
+			{
+				delete_annot_regions(per_scale_merged_regions[scale_i]);
+			}
+			else
+			{
+				delete per_scale_merged_regions[scale_i];
+			}
+		} // scale_i
+		delete [] per_scale_merged_regions;
+	} // i_reg loop.
+
+	return(merged_SSERs);
 }
 
 double* load_normalized_multimappability_profile(char* mapability_signal_profile_fp, int& l_mapability_profile)
@@ -553,6 +877,9 @@ void get_peaks(char* chip_reads_dir,
 		double min_sensitivity_per_satisfying_FPR = 0.99; // If sensitivity is greater than this while FPR is satisfied, we use this value.
 		double max_fpr_per_satisfying_sensitivity = 0.0; // If fpr is smaller than this value at satisfying sensitivity, we use this value.
 
+		/*
+		TODO: Reporting the exit condition actually gives the user a sense about the signal-to-noise ratio of the chip enrichment.
+		*/
 		l_p_val_norm_win = select_l_p_per_stats_file("l_p_param_stats.txt", 
 													target_max_p_val_fc_fpr, 
 													target_min_sensitivity,
@@ -640,29 +967,43 @@ void get_peaks(char* chip_reads_dir,
 		} // i loop.
 		delete [] buffered_signal_profile;
 
-		// Generate the current control profile.
-		l_buffer = 300*1000*1000;
-		int l_control = 0;
-		double* buffered_control_profile = new double[l_buffer + 2];
-		char cur_chr_control_reads_fp[1000];
-		sprintf(cur_chr_control_reads_fp, "%s/%s_mapped_reads.txt", control_reads_dir, chr_ids->at(i_chr));
-		buffer_per_nucleotide_profile_no_buffer(cur_chr_control_reads_fp, l_fragment, 
-			buffered_control_profile, NULL, NULL, 
-			l_buffer, l_control);
-
 		// Check control file.
-		if(!check_file(cur_chr_control_reads_fp))
+		double* control_profile = NULL;
+		int l_control = 0;
+		char cur_chr_control_reads_fp[1000];
+
+		if(control_reads_dir != NULL)
 		{
-			fprintf(stderr, "Processed control reads for %s does not exist @ %s. Skipping.\n", chr_ids->at(i_chr), cur_chr_control_reads_fp);
-			continue;
+			sprintf(cur_chr_control_reads_fp, "%s/%s_mapped_reads.txt", control_reads_dir, chr_ids->at(i_chr));
 		}
 
-		double* control_profile = new double[l_control + 2];
-		for(int i = 0; i <= l_control; i++)
+		if(control_reads_dir == NULL ||
+			!check_file(cur_chr_control_reads_fp))
 		{
-			control_profile[i] = buffered_control_profile[i];
-		} // i loop.
-		delete [] buffered_control_profile;
+			fprintf(stderr, "No control, setting up control signal profile.\n");
+
+			// Generate the control profile from the signal profile: scaled to match the p-val window and FPR requirement.
+			control_profile = get_control_per_chip_profile(signal_profile, l_profile, l_p_val_norm_win, l_fragment);
+			l_control = l_profile;
+		}
+		else
+		{
+			// Control profile exists, load it from the reads.
+			control_profile = new double[l_control + 2];
+
+			// Generate the current control profile.
+			l_buffer = 300*1000*1000;
+			int l_control = 0;
+			double* buffered_control_profile = new double[l_buffer + 2];
+			buffer_per_nucleotide_profile_no_buffer(cur_chr_control_reads_fp, l_fragment, 
+				buffered_control_profile, NULL, NULL, 
+				l_buffer, l_control);
+			for(int i = 0; i <= l_control; i++)
+			{
+				control_profile[i] = buffered_control_profile[i];
+			} // i loop.
+			delete [] buffered_control_profile;
+		}
 
 if(__DBG__)
 {
@@ -841,6 +1182,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 
 		// Filter the minima per p-value and fdr based end pruning.
 		vector<t_annot_region*>* all_filtered_pruned_minima_regions = new vector<t_annot_region*>();
+		vector<vector<t_annot_region*>*>* per_scale_filtered_minima_regions = new vector<vector<t_annot_region*>*>();
 		for(int i_scale = 0; i_scale < (int)per_scale_minima_regions->size(); i_scale++)
 		{
 			if(scales_per_i_scale->at(i_scale) < base_scale_l_win_per_bin)
@@ -858,7 +1200,7 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 				dump_BED(cur_scale_all_minima_fp, per_scale_minima_regions->at(i_scale));
 }
 
-				fprintf(stderr, "Filtering features at %d. scale.\n", i_scale);
+				fprintf(stderr, "Filtering features at %d. scale.                \r", i_scale);
 
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__ )
 				fprintf(stderr, "RD based end pruning.\n");
@@ -1034,16 +1376,46 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 				all_filtered_pruned_minima_regions->insert(all_filtered_pruned_minima_regions->end(), 
 															cur_scale_filtered_minima->begin(), 
 															cur_scale_filtered_minima->end());
+
+				per_scale_filtered_minima_regions->push_back(cur_scale_filtered_minima);
 			} // base_scale check.
 		} // i_scale loop.
+		fprintf(stderr, "Finished filtering SSERs.                     \n");
 
 		// Free the memory for the per scale minima regions.
 		delete per_scale_minima_regions;
 
-		// Now merge the filtered/pruned minima regions.
+		// SSER merging strategies.
+#define __SIMPLE_MERGE__
+#ifdef __SIMPLE_MERGE__
+		// Now merge the filtered/pruned minima regions: Following simply merges the regions to generate features.
 		vector<t_annot_region*>* filtered_pruned_merged_minima_regions = merge_annot_regions(all_filtered_pruned_minima_regions, 1);
 
-		// Free the memort for all the filtered minima regions.
+#elif defined( __CUMULATIVE_MERGE__ )
+		// Following merges regions of interest cumulatively and 
+		vector<t_annot_region*>* all_pruned_merged_minima_regions = merge_annot_regions(all_filtered_pruned_minima_regions, 1);
+		vector<t_annot_region*>* filtered_pruned_merged_minima_regions = merge_SSERs_2_features_per_chromosome(all_pruned_merged_minima_regions,
+																												per_scale_filtered_minima_regions, 
+																												signal_profile, l_profile,
+																												control_profile, l_control,
+																												log(trimmed_SSER_p_value_cutoff),
+																												l_fragment, 
+																												l_p_val_norm_win);
+
+		// Free the memory for all the filtered minima regions.
+		delete_annot_regions(all_pruned_merged_minima_regions);
+#else
+#error "No SSER merge type defined!"
+#endif // __CUMULATIVE_MERGE__
+
+		// Free per scale region list memory.
+		for(int scale_i = 0; scale_i < (int)per_scale_filtered_minima_regions->size(); scale_i++)
+		{
+			delete per_scale_filtered_minima_regions->at(scale_i);
+		} // scale_i loop.
+		delete per_scale_filtered_minima_regions;
+
+		// Free the memory for all the filtered minima regions.
 		delete_annot_regions(all_filtered_pruned_minima_regions);
 
 		// Do RD based and p-value based end pruning to the final set of peaks: Note that this may be skipped for making algorithm faster as this 
@@ -1511,7 +1883,7 @@ void dump_ERs_per_q_value_and_summit(vector<t_annot_region*>* regions, char* op_
 		//	cur_reg_info->max_chip_mass / cur_reg_info->max_control_mass);
 		t_significance_info* sig_info = (t_significance_info*)(regions->at(i_reg)->significance_info);
 		fprintf(f_op, "%s\t%d\t%d\t.\t%lf\t%c\t%d\t%d\t%lf\n", regions->at(i_reg)->chrom, regions->at(i_reg)->start, regions->at(i_reg)->end, 
-			sig_info->log_q_val, 
+			sig_info->log_q_val / log(10.0), 
 			regions->at(i_reg)->strand,
 			(int)(cur_reg_info->climax_posn), 
 			(int)(cur_reg_info->mappable_trough), 

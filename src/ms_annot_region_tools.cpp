@@ -948,7 +948,7 @@ void dump_BED_w_p_values(vector<t_annot_region*>* regions, char* op_fp)
 	for(int i_reg = 0; i_reg < (int)regions->size(); i_reg++)
 	{
 		t_significance_info* sig_info = (t_significance_info*)(regions->at(i_reg)->significance_info);
-		fprintf(f_op, "%s\t%d\t%d\t.\t%lf\t%c\n", regions->at(i_reg)->chrom, regions->at(i_reg)->start, regions->at(i_reg)->end, sig_info->log_p_val / log(10), regions->at(i_reg)->strand);
+		fprintf(f_op, "%s\t%d\t%d\t.\t%lf\t%c\n", regions->at(i_reg)->chrom, regions->at(i_reg)->start, regions->at(i_reg)->end, sig_info->log_p_val / log(10.0), regions->at(i_reg)->strand);
 	} // i_reg loop.
 
 	fclose(f_op);

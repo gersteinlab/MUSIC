@@ -95,6 +95,76 @@ int sort_doubles_descending(const void* p1, const void* p2)
 	}
 }
 
+double* mean_filter_data(double* track_data,
+						int l_track_data, 
+						int l_averaging_win,
+						int skip_value) // This is the value to be skipped from the window values.
+{
+	// Do copying from start to end.
+    double* cur_filtered_track = new double[l_track_data + 2];
+
+	int half_l_averaging = l_averaging_win / 2;
+		
+	// Initialize the current pdf.
+	double cur_total_win_val = 0;
+	bool val_inited = false;
+
+	int prev_avg_start = -1;
+	int prev_avg_end = -1;
+
+	// Go over all the positions as the middle of the filtering window.
+	for(int cur_win_mid = 1; cur_win_mid <= l_track_data; cur_win_mid++)
+	{
+		cur_filtered_track[cur_win_mid] = 0;
+
+		int cur_avg_start = (cur_win_mid > half_l_averaging)?(cur_win_mid - half_l_averaging):(1);
+		int cur_avg_end = (cur_win_mid + half_l_averaging <= l_track_data)?(cur_win_mid + half_l_averaging):(l_track_data);
+		if(!val_inited)
+		{
+			for(int i = cur_avg_start; i <= cur_avg_end; i++)
+			{
+				cur_total_win_val += track_data[i];
+			} // i loop.
+
+			val_inited = true;
+		}
+		else
+		{
+			// Exclude the signal values that got out of the current window.
+			for(int i = prev_avg_start; i < cur_avg_start; i++)
+			{
+				cur_total_win_val -= track_data[i];
+			} // i loop.
+
+			// Add the signal values that entered the current window.
+			for(int i = prev_avg_end+1; i <= cur_avg_end; i++)
+			{
+				cur_total_win_val += track_data[i];
+			} // i loop.
+		}
+
+		double check_val = 0;
+		for(int i = cur_avg_start; i <= cur_avg_end; i++)
+		{
+			check_val += track_data[i];
+		} // i loop.
+
+		if(fabs(check_val - cur_total_win_val) > 2)
+		{
+			fprintf(stderr, "Check failed: %d: %lf, %lf\n", cur_win_mid, check_val, cur_total_win_val);
+			exit(0);
+		}
+
+
+		cur_filtered_track[cur_win_mid] = cur_total_win_val / (cur_avg_end - cur_avg_start + 1);
+
+		prev_avg_start = cur_avg_start;
+		prev_avg_end = cur_avg_end;
+	} // main signal filtering loop.
+
+	return(cur_filtered_track);
+}
+
 // Median filter: Generates 1 based filtered tracks.
 double* median_filter_data(double* track_data,
 	int l_track_data, 
@@ -307,6 +377,249 @@ double* median_filter_data(double* track_data,
 
 	return(cur_filtered_track);
 }
+
+vector<double*>* multiscale_avg_filter_data(double* track_data, 
+	int l_track_data, 
+	double scale_start, double scale_end, double log_scale_step, 
+	vector<double>* scales_per_i_scale,
+	bool dump_decomposition,
+	bool compute_extrema_regions,
+	bool dump_extrema_regions,
+	vector<vector<t_annot_region*>*>* per_scale_minima_regions, 
+	vector<vector<t_annot_region*>*>* per_scale_maxima_regions,
+	char* op_file_prefix)
+{
+	vector<double*>* decomps = new vector<double*>();
+
+	// Start from the first scale, go over all the scales and filter the data.
+	double scale = 1.0 / log_scale_step;
+	int i_scale = 0;
+	while(1)
+	{
+		scale *= log_scale_step;
+
+		scales_per_i_scale->push_back(scale);
+
+		// Are we going to process a scale within the requested limits? If not, we will skip this computation to save time.
+		if(scale < scale_start)
+		{
+			decomps->push_back(NULL);
+
+			if(compute_extrema_regions)
+			{
+				if(per_scale_minima_regions != NULL)
+				{
+					per_scale_minima_regions->push_back(new vector<t_annot_region*>());
+				}
+
+				if(per_scale_maxima_regions != NULL)
+				{
+					per_scale_maxima_regions->push_back(new vector<t_annot_region*>());
+				}
+			}
+
+			i_scale++;
+			continue;
+		}
+		else
+		{
+if(__DUMP_FILTER_MSGS__)
+{
+			fprintf(stderr, "Processing scale %lf (%lf)\n", scale, scale_end);
+}
+
+			// Get the filter for the current scale: The gaussian filter.
+			int int_scale = (int)(scale);
+			int l_averaging_win = ((int_scale % 2) == 1)?(int_scale-1):(int_scale);
+
+			// Do copying from start to end.
+			double* cur_filtered_track = new double[l_track_data + 2];
+
+			int n_signal_wins = 0;
+			int half_l_averaging = l_averaging_win / 2;
+
+			// Initialize the current pdf.
+			//int* cur_win_pdf = NULL;
+			//int cur_win_max = 0;
+			//int cur_win_min = 1000*1000;
+			//double* cur_win_vals = new double[l_averaging_win + 2];
+			int prev_avg_start = 0;
+			int prev_avg_end = 0;
+
+			// Go over all the positions as the middle of the filtering window.
+			double cur_win_total = -123123;
+			for(int cur_win_mid = 0; cur_win_mid < l_track_data; cur_win_mid++)
+			{
+				int cur_avg_start = (cur_win_mid > half_l_averaging)?(cur_win_mid - half_l_averaging):(1);
+				int cur_avg_end = (cur_win_mid + half_l_averaging <= l_track_data)?(cur_win_mid + half_l_averaging):(l_track_data);
+				if(cur_win_total == -123123)
+				{
+					// Get the total by a loop for the current window.
+					cur_win_total = 0.0;
+					for(int i = cur_avg_start; i <= cur_avg_end; i++)
+					{
+						cur_win_total += track_data[i];
+					} // i loop.
+				} // cur_win_pdf is NULL check.
+				else
+				{
+					// Remove the old values from the pdf, add the new values.
+					for(int i = prev_avg_start; i < cur_avg_start; i++)
+					{
+						cur_win_total -= track_data[i];
+					} // i loop.
+
+					// Update the min and max only for the values that are new in this window.
+					for(int i = prev_avg_end+1; i <= cur_avg_end; i++)
+					{
+						cur_win_total += track_data[i];
+					}
+				} // cur_win_pdf is NULL check.
+
+				// Set the median.
+				cur_filtered_track[cur_win_mid] = cur_win_total / l_averaging_win;
+
+				// Update the previous averaging window limits.
+				prev_avg_start = cur_avg_start;
+				prev_avg_end = cur_avg_end;
+
+#undef _MANUAL_TOTAL_CHECK_
+#ifdef _MANUAL_TOTAL_CHECK_
+				// Get the median via qsort and compare as a sanity check.
+				double manual_total = 0.0;
+				for(int i = cur_avg_start; i <= cur_avg_end; i++)
+				{
+					manual_total += track_data[i];
+				} // i loop.
+
+				if(manual_total != cur_win_total)
+				{
+					fprintf(stderr, "Sanity check failed at manual total check, %s(%d)\n", __FILE__, __LINE__);
+					exit(0);
+				}
+#endif // _MANUAL_TOTAL_CHECK_
+
+				n_signal_wins++;
+			} // main signal filtering loop.
+
+			// Copy the data.
+			if(dump_decomposition)
+			{
+				// Dump and free memory.
+				char cur_decomp_fp[1000];
+				//sprintf(cur_decomp_fp, "decomp_%d_%d_%d.bin", i_scale, cur_win_start, cur_win_start + cur_l_win);
+				sprintf(cur_decomp_fp, "%s_scale_%d.bin", op_file_prefix, i_scale);
+				fprintf(stderr, "Dumping %s\n", cur_decomp_fp);
+				double* _cur_filtered_track = get_one_indexed_per_zero_indexed_data(cur_filtered_track, l_track_data);
+				dump_per_nucleotide_binary_profile(_cur_filtered_track, l_track_data, cur_decomp_fp);
+				fprintf(stderr, "Closing file\n");
+
+				// Clean track memory.
+				delete [] _cur_filtered_track;
+				delete [] cur_filtered_track;
+			}
+			else if(compute_extrema_regions)
+			{
+if(__DUMP_FILTER_MSGS__)
+				fprintf(stderr, "Getting the extrema regions.\n");
+
+				// Get the extrema regions for the current filtered regions.
+				vector<t_extrema_node*>* maxima = new vector<t_extrema_node*>();
+				vector<t_extrema_node*>* minima = new vector<t_extrema_node*>();
+				int* derivative_map = new int[l_track_data+2];
+				memset(derivative_map, 0, sizeof(int) * (l_track_data+2));
+				get_extrema_per_plateaus(cur_filtered_track, l_track_data, maxima, minima, derivative_map, 0);
+
+				// Sort the extremas.
+				sort(minima->begin(), minima->end(), sort_extremas_per_posn);
+				sort(maxima->begin(), maxima->end(), sort_extremas_per_posn);
+
+				if(dump_extrema_regions)
+				{
+					// Get the minima and maxima, then dump.
+					char cur_minima_regs_fp[1000];
+					char cur_maxima_regs_fp[1000];
+					sprintf(cur_minima_regs_fp, "%s_scale_%d_mins.bed", op_file_prefix, i_scale);
+					sprintf(cur_maxima_regs_fp, "%s_scale_%d_maxes.bed", op_file_prefix, i_scale);
+
+					fprintf(stderr, "Dumping the extrema regions.\n");
+					FILE* f_maxes = open_f(cur_maxima_regs_fp, "w");
+					for(int i_m = 0; i_m < (int)maxima->size(); i_m++)
+					{
+						fprintf(f_maxes, "XX\t%d\t%d\n", translate_coord(maxima->at(i_m)->extrema_posn+1, CODEBASE_COORDS::start_base, BED_COORDS::start_base),
+							translate_coord(maxima->at(i_m)->extrema_posn+1, CODEBASE_COORDS::end_base, BED_COORDS::end_base));
+					} // i_m loop.
+					fclose(f_maxes);
+
+					FILE* f_mins = open_f(cur_minima_regs_fp, "w");
+					for(int i_m = 0; i_m < (int)minima->size()-1; i_m++)
+					{
+						fprintf(f_mins, "XX\t%d\t%d\n", translate_coord(minima->at(i_m)->extrema_posn+1, CODEBASE_COORDS::start_base, BED_COORDS::start_base),
+							translate_coord(minima->at(i_m+1)->extrema_posn+1, CODEBASE_COORDS::end_base, BED_COORDS::end_base));
+					} // i_m loop.
+					fclose(f_mins);
+				}
+
+				if(per_scale_minima_regions != NULL)
+				{
+					vector<t_annot_region*>* cur_scale_minima_regions = new vector<t_annot_region*>();
+					for(int i_m = 0; i_m < (int)minima->size()-1; i_m++)
+					{
+						t_annot_region* new_minima = get_empty_region();
+						new_minima->chrom = t_string::copy_me_str("XX");
+						new_minima->start = translate_coord(minima->at(i_m)->extrema_posn+1, CODEBASE_COORDS::start_base, BED_COORDS::start_base);
+						new_minima->end = translate_coord(minima->at(i_m+1)->extrema_posn+1, CODEBASE_COORDS::end_base, BED_COORDS::end_base);
+						new_minima->strand = '+';
+
+						cur_scale_minima_regions->push_back(new_minima);
+					} // i_min loop.
+
+					per_scale_minima_regions->push_back(cur_scale_minima_regions);
+				}
+			
+				if(per_scale_maxima_regions != NULL)
+				{
+					vector<t_annot_region*>* cur_scale_maxima_regions = new vector<t_annot_region*>();
+					for(int i_m = 0; i_m < (int)maxima->size(); i_m++)
+					{
+						t_annot_region* new_maxima = get_empty_region();
+						new_maxima->chrom = t_string::copy_me_str("XX");
+						new_maxima->start = translate_coord(maxima->at(i_m)->extrema_posn+1, CODEBASE_COORDS::start_base, BED_COORDS::start_base);
+						new_maxima->end = translate_coord(maxima->at(i_m+1)->extrema_posn+1, CODEBASE_COORDS::end_base, BED_COORDS::end_base);
+						new_maxima->strand = '+';
+
+						cur_scale_maxima_regions->push_back(new_maxima);
+					} // i_m loop.
+
+					per_scale_maxima_regions->push_back(cur_scale_maxima_regions);
+				}
+
+				delete_extrema_nodes(minima);
+				delete_extrema_nodes(maxima);
+			
+				// Free the current decomposition.
+				delete [] derivative_map;
+				delete [] cur_filtered_track;
+			}
+			else
+			{
+				// Store the decompositions.
+				decomps->push_back(cur_filtered_track);
+			}
+
+			// Was the last processed value equal to or larger than what was requested?
+			if(scale_end > 0 && 
+				scale >= scale_end)
+			{
+				break;
+			}
+
+			i_scale++;
+		} // scale computation check.
+	} // scale loop.
+
+	return(decomps);
+} // multiscale_avg_filter_data
 
 vector<double*>* multiscale_median_filter_data(double* track_data, 
 	int l_track_data, 
@@ -770,7 +1083,8 @@ if(__DUMP_FILTER_MSGS__)
 		{
 //if(__DUMP_FILTER_MSGS__)
 //{
-			fprintf(stderr, "Processing scale %.2f (%.2f)\n", scale, scale_end);
+			//fprintf(stderr, "Processing scale %.2f (%.2f)\n", scale, scale_end);
+			fprintf(stderr, "Generating ERs @ scale with %d/%d bins.                      \r", (int)scale, (int)scale_end);
 //}
 
 			// Get the filter for the current scale: The gaussian filter.
@@ -1072,6 +1386,7 @@ if(__DUMP_FILTER_MSGS__)
 			i_scale++;
 		} // scale computation check.
 	} // scale loop.
+	fprintf(stderr, "Generated SSERs for %d scales.                                \n", (int)scales_per_i_scale->size());
 
 if(__DUMP_FILTER_MSGS__)
 		fclose(f_feature_signal_vals);

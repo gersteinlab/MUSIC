@@ -40,7 +40,7 @@ Peak Selection:\n\
 	-get_TF_peaks [Options/Values]\n\
 Profile Outputs:\n\
 	-write_MS_decomposition [Options/Values]\n\
-Parametrization options:\n\
+Parametrization Options:\n\
 	-get_per_win_p_vals_vs_FC [Options/Values]\n\
 	-get_scale_spectrum [Options/Values]\n\
 Recreative Options (Fun with ChIP-Seq):\n\
@@ -1007,8 +1007,9 @@ if(__DUMP_PEAK_MESSAGES__)
 		char* control_reads_dir = cli->get_value_by_option("-control", ret);
 		if(!ret)
 		{
-			fprintf(stderr, "Need control.\n");
-			exit(0);
+			//fprintf(stderr, "Need control.\n");
+			fprintf(stderr, "No control specified, calling without controls.\n");
+			control_reads_dir = NULL;
 		}
 
 		ret = false;
@@ -1181,8 +1182,8 @@ if(__DUMP_PEAK_MESSAGES__)
 		char* control_reads_dir = cli->get_value_by_option("-control", ret);
 		if(!ret)
 		{
-			fprintf(stderr, "Need control.\n");
-			exit(0);
+			fprintf(stderr, "No control specified, calling without controls.\n");
+			control_reads_dir = NULL;
 		}
 
 		ret = false;
@@ -1355,8 +1356,8 @@ if(__DUMP_PEAK_MESSAGES__)
 		char* control_reads_dir = cli->get_value_by_option("-control", ret);
 		if(!ret)
 		{
-			fprintf(stderr, "Need control.\n");
-			exit(0);
+			fprintf(stderr, "No control specified, calling without controls.\n");
+			control_reads_dir = NULL;
 		}
 
 		ret = false;
@@ -1518,7 +1519,7 @@ if(__DUMP_PEAK_MESSAGES__)
 		char* control_reads_dir = cli->get_value_by_option("-control", ret);
 		if(!ret)
 		{
-			fprintf(stderr, "Need control.\n");
+			fprintf(stderr, "Need control for determining the p-value estimation.\n");
 			exit(0);
 		}
 
@@ -1895,8 +1896,8 @@ if(__DUMP_PEAK_MESSAGES__)
 		char* control_reads_dir = cli->get_value_by_option("-control", ret);
 		if(!ret)
 		{
-			fprintf(stderr, "Need control.\n");
-			exit(0);
+			fprintf(stderr, "No control specified, calling without controls.\n");
+			control_reads_dir = NULL;
 		}
 
 		ret = false;
@@ -2273,7 +2274,6 @@ if(__DUMP_PEAK_MESSAGES__)
 		{
 			fprintf(stderr, "USAGE: %s -get_multiscale_music get_scale_spectrum [Options/Values]\n\
 							-chip [ChIP reads directory]\n\
-							-control [control reads directory]\n\
 							-mapp [multi-mapability profiles directory]\n\
 							-begin_l [First scale smoothing window length (1000)]\n\
 							-end_l [Last scale smoothing window length (16000)]\n\
@@ -2315,14 +2315,6 @@ if(__DUMP_PEAK_MESSAGES__)
 			fprintf(stderr, "Need chip.\n");
 			exit(0);
 		}
-
-		//ret = false;
-		//char* control_reads_dir = cli->get_value_by_option("-control", ret);
-		//if(!ret)
-		//{
-		//	fprintf(stderr, "Need control.\n");
-		//	exit(0);
-		//}
 
 		ret = false;
 		char* mapability_signal_dir = cli->get_value_by_option("-mapp", ret);

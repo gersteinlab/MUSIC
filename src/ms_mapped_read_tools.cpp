@@ -783,7 +783,7 @@ void preprocess_SAM_read_line(char* cur_line,
 	//t_string_tokens* cur_tokens = t_string::tokenize_by_chars(cur_line, "\t");
 	//if(sscanf(cur_line, "%s %d %s %d %*s %s %*s %*s %*s %s %s", read_id, &flag, chrom, &_chr_index, cigar_str, fragment, phred_quality_str) == 7)
 	//if(cur_tokens->size() >= 11)
-	if(sscanf(cur_line, "%[^'\t'] %[^'\t'] %[^'\t'] %[^'\t'] %*[^'\t'] %[^'\t'] %*[^'\t'] %*[^'\t'] %*[^'\t'] %[^'\t'] %[^'\t']", read_id, flag_str, chrom, _chr_index_str, cigar_str, fragment, phred_quality_str) == 7)
+	if(sscanf(cur_line, "%[^\t] %[^\t] %[^\t] %[^\t] %*[^\t] %[^\t] %*[^\t] %*[^\t] %*[^\t] %[^\t] %[^\t]", read_id, flag_str, chrom, _chr_index_str, cigar_str, fragment, phred_quality_str) == 7)
 	{
 		//t_string::copy(read_id, cur_tokens->at(0)->str());
 		//flag = atoi(cur_tokens->at(1)->str());
@@ -910,7 +910,7 @@ void preprocess_bowtie_read_line(char* cur_line,
 	char strand_sign_str[100];
 	char chr_start_index_str[100];
 	//if(sscanf(cur_line, "%s %c %s %d %s", read_id, &strand_sign, chrom, &chr_start_index, nucs) == 4)
-	if(sscanf(cur_line, "%[^'\t'] %[^'\t'] %[^'\t'] %[^'\t'] %[^'\t']", read_id, strand_sign_str, chrom, chr_start_index_str, nucs) == 5)
+	if(sscanf(cur_line, "%[^\t] %[^\t] %[^\t] %[^\t] %[^\t]", read_id, strand_sign_str, chrom, chr_start_index_str, nucs) == 5)
     {
 		strand_sign = strand_sign_str[0];
 		chr_start_index = atoi(chr_start_index_str);
@@ -1296,9 +1296,35 @@ if(__DUMP_MAPPED_READ_TOOLS_MSGS__)
 
 		n_processed_reads++;
 
-		if(sscanf(cur_read, "%s %c %d", mapping_map_str, &strand_char, &chr_index) != 3)
+		// We need a check on the current read line to make sure what we have is a valid: index must be strictly numbers; mapping map string is validated
+		// below.
+		char chr_index_str[1000];
+
+		if(sscanf(cur_read, "%s %c %s", mapping_map_str, &strand_char, chr_index_str) != 3)
 		{
 			fprintf(stderr, "Could not parse %s\n", cur_read);
+			exit(0);
+		}
+
+		// Validate the string read as chromosome index.
+		int char_i = 0;
+		while(chr_index_str[char_i] != 0)
+		{
+			bool char_is_a_num = (chr_index_str[char_i] >= '0' && chr_index_str[char_i] <= '9');
+			if(!char_is_a_num)
+			{
+				fprintf(stderr, "Chromosome index must be a number: %s\n", cur_read);
+				exit(0);
+			}
+
+			char_i++;
+		} // char_i loop.
+
+		// This may be pointing to an error in read preprocessing.
+		chr_index = atof(chr_index_str);
+		if(chr_index > l_buffer)
+		{
+			fprintf(stderr, "%s: The read mapped out of buffer.\n", cur_read);
 			exit(0);
 		}
 

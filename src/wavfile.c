@@ -49,7 +49,7 @@ FILE * wavfile_open( const char *filename )
 	header.bits_per_sample = bits_per_sample;
 	header.data_length = 0;
 
-	FILE * file = fopen(filename,"w+");
+	FILE* file = fopen(filename,"w+");
 	if(!file) return 0;
 
 	fwrite(&header,sizeof(header),1,file);

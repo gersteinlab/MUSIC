@@ -1390,6 +1390,7 @@ if(__DUMP_SIGNAL_ENRICHMENT_MSGS__)
 				total_pruned_sig += signal_profile[i_sig];
 			} // i_sig.
 
+			// TODO::Following should actually be removed since it creates issues with overextended ER ends.
 			// If we are below 50% of the total probability, stop since most of the signal is lost already.
 			if(total_pruned_sig/total_signal <= 0.5)
 			{
