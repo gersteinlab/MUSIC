@@ -73,9 +73,9 @@ MUSIC -get_multiscale_broad_ERs -chip chip/dedup -control input/dedup -mapp Mapp
 </div><br>
 This code tells MUSIC to identify the enriched regions starting from 1kb smoothing window length upto 16kb with multiplicative factor of 1.5 using the default
 parameters for the remaining parameters. The ERs for each scale are dumped. 
-
+<br><br>
 In case there is no control, skip the option that specifies preprocessed control reads directory (i.e., '-control input/dedup')
-
+<br><br>
 There are 3 different ER identification modes by default. 
 <h3>-get_TF_peaks</h3>
 Identifies point binding events. This uses very small scale level to identify the small transcription factor binding peaks. Use this mode for TF's like CTCF. MUSIC aims
