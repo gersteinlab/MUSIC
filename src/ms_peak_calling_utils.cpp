@@ -989,15 +989,19 @@ void get_peaks(char* chip_reads_dir,
 		else
 		{
 			// Control profile exists, load it from the reads.
-			control_profile = new double[l_control + 2];
-
-			// Generate the current control profile.
 			l_buffer = 300*1000*1000;
-			int l_control = 0;
+
+			// Reset l_control.
+			l_control = 0;
+
+			// Buffer the profile.
 			double* buffered_control_profile = new double[l_buffer + 2];
 			buffer_per_nucleotide_profile_no_buffer(cur_chr_control_reads_fp, l_fragment, 
 				buffered_control_profile, NULL, NULL, 
 				l_buffer, l_control);
+			
+			// Copy the profile.
+			control_profile = new double[l_control + 2];
 			for(int i = 0; i <= l_control; i++)
 			{
 				control_profile[i] = buffered_control_profile[i];
