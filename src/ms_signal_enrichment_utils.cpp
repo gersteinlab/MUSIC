@@ -848,6 +848,13 @@ void tune_regions_per_window_average_at_boundaries(vector<t_annot_region*>* regi
 
 		//fprintf(stderr, "Window: %d-%d: Threshold: %lf\n", cur_win_start, cur_win_start + cur_l_win, cur_win_thresh);
 
+		FILE* f_tuned_feat_ends = NULL;
+			
+		if(__DUMP_SIGNAL_ENRICHMENT_MSGS__)
+		{
+			f_tuned_feat_ends = open_f("tuned_feat_ends.bed", "a");
+		}
+
 		// Go over all the regions in the current window and prune the ends with respect to the threshold.
 		for(int i_reg = 0; cur_win_thresh > 0 && i_reg < (int)regions->size(); i_reg++)
 		{
@@ -855,18 +862,39 @@ void tune_regions_per_window_average_at_boundaries(vector<t_annot_region*>* regi
 			if((regions->at(i_reg)->start >= cur_win_start &&
 				regions->at(i_reg)->start < cur_win_start + cur_l_win))
 			{
+				bool reg_tuned = false;
+
+				// Following is actually a very weak and unstable check, we must evaluate whether there is high signal around the start/end of this region.
 				if(signal_profile[regions->at(i_reg)->start] >= cur_win_thresh)
 				{
 					regions->at(i_reg)->start -= 100;
-					regions->at(i_reg)->start = (regions->at(i_reg)->start < 1)?(1):(regions->at(i_reg)->start);
+					regions->at(i_reg)->start = (regions->at(i_reg)->start < 1)?(1):(regions->at(i_reg)->start);					
+
+					reg_tuned = true;
 				}
 				else if(signal_profile[regions->at(i_reg)->end] >= cur_win_thresh)
 				{
 					regions->at(i_reg)->end += 100;
 					regions->at(i_reg)->end = (regions->at(i_reg)->end > l_profile)?(l_profile):(regions->at(i_reg)->end);
+
+					reg_tuned = true;
+				}
+
+				// If the region is tuned, dump the region, if we are dumping.
+				if(f_tuned_feat_ends != NULL &&
+					reg_tuned)
+				{
+					fprintf(f_tuned_feat_ends, "%s\t%d\t%d\t%.3f %.3f %.3f\t.\t+\n", 
+							regions->at(i_reg)->chrom, regions->at(i_reg)->start, regions->at(i_reg)->end,
+							signal_profile[regions->at(i_reg)->start], signal_profile[regions->at(i_reg)->end], cur_win_thresh);
 				}
 			}
 		} // i_reg loop.
+
+		if(f_tuned_feat_ends != NULL)
+		{
+			fclose(f_tuned_feat_ends);
+		}
 
 		// Update window.
 		cur_win_start += l_win;

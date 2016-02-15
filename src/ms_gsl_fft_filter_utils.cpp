@@ -143,6 +143,9 @@ double* mean_filter_data(double* track_data,
 			} // i loop.
 		}
 
+		// Following does a sanity check for the computed values.
+if(__DUMP_FILTER_MSGS__)
+{
 		double check_val = 0;
 		for(int i = cur_avg_start; i <= cur_avg_end; i++)
 		{
@@ -154,7 +157,7 @@ double* mean_filter_data(double* track_data,
 			fprintf(stderr, "Check failed: %d: %lf, %lf\n", cur_win_mid, check_val, cur_total_win_val);
 			exit(0);
 		}
-
+}
 
 		cur_filtered_track[cur_win_mid] = cur_total_win_val / (cur_avg_end - cur_avg_start + 1);
 

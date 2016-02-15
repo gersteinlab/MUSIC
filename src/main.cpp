@@ -40,6 +40,7 @@ Peak Selection:\n\
 	-get_TF_peaks [Options/Values]\n\
 Profile Outputs:\n\
 	-write_MS_decomposition [Options/Values]\n\
+	-write_logR_signal [Options/Values]\n\
 Parametrization Options:\n\
 	-get_per_win_p_vals_vs_FC [Options/Values]\n\
 	-get_scale_spectrum [Options/Values]\n\
@@ -59,6 +60,7 @@ Recreative Options (Fun with ChIP-Seq):\n\
 	-l_frag [Fragment length (200)]\n\
 	-l_c [Mapability correction window length (2000)]\n\
 	-l_p [Normalization window length for p-value computation]\n\
+	-sigma [min(Fore/Back, Back/Fore) (.5)]\n\
 	-gamma [Min threshold for unsmoothed/smoothed (4)]\n\
 	-q_val [Maximum q-value for the reported ERs]\n\
 Parameters for -get_per_win_p_vals_vs_FC:\n\
@@ -832,6 +834,144 @@ if(__DUMP_PEAK_MESSAGES__)
 			delete [] rev_profile;
 		} // i_chr loop.
 	} // -cross_correlation.
+	else if(strcmp(argv[1], "-write_logR_signal") == 0)
+	{
+		if(argc < 5)
+		{
+			fprintf(stderr, "USAGE: %s -write_logR_signal [Option/Values]\n\
+	-chip [ChIP reads directory]\n\
+	-control [control reads directory]\n\
+	-mapp [multi-mapability profiles directory]\n\
+	-begin_l [First scale smoothing window length (1000)]\n\
+	-end_l [Last scale smoothing window length (16000)]\n\
+	-step [Multiplicative window length step (1.5)]\n\
+	-l_mapp [Read length of multi-mapability profiles]\n\
+	-mapp_thr [Multi-mapability signal threshold used in correction (1.2)]\n\
+	-l_frag [Fragment length (200)]\n\
+	-l_c [Mapability correction window length (2000)]\n\
+	-gamma [Min threshold for unsmoothed/smoothed (4)]\n", argv[0]);
+			exit(0);
+		}
+
+		double base_scale_l_win = 1000;
+		double end_scale_l_win = 16000; 
+		double log_step = 1.5;
+		int l_p_val_norm_win = 1750;
+		int l_mapability_filtering_win = 2000;
+		double max_normalized_mapability_signal = 1.2;
+		double filtered_vs_non_filtered_max_scaler = 4;
+		int l_fragment = 200;
+
+		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
+		bool ret = false;
+		char* chip_reads_dir = cli->get_value_by_option("-chip", ret);
+		if(!ret)
+		{
+			fprintf(stderr, "Need chip.\n");
+			exit(0);
+		}
+
+		char* control_reads_dir = cli->get_value_by_option("-control", ret);
+		if(!ret)
+		{
+			fprintf(stderr, "Need control.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* mapability_signal_dir = cli->get_value_by_option("-mapp", ret);
+		if(!ret)
+		{
+			mapability_signal_dir = NULL;
+		}
+
+		ret = false;
+		char* l_read_mapability_signal_str = cli->get_value_by_option("-l_mapp", ret);
+		int l_read_mapability_signal = 0;
+		if(ret)
+		{
+			l_read_mapability_signal = atoi(l_read_mapability_signal_str);
+		}
+		else if(mapability_signal_dir != NULL)
+		{
+			fprintf(stderr, "Could not read the mapability read length.\n");
+			exit(0);
+		}
+
+		ret = false;
+		char* l_frag_str = cli->get_value_by_option("-l_frag", ret);
+		if(ret)
+		{
+			l_fragment = atoi(l_frag_str);
+		}
+
+		ret = false;
+		char* base_scale_l_win_str = cli->get_value_by_option("-begin_l", ret);
+		if(ret)
+		{
+			base_scale_l_win = atof(base_scale_l_win_str);
+		}
+
+		ret = false;
+		char* end_scale_l_win_str = cli->get_value_by_option("-end_l", ret);
+		if(ret)
+		{
+			end_scale_l_win = atof(end_scale_l_win_str);
+		}
+
+		ret = false;
+		char* log_step_str = cli->get_value_by_option("-step", ret);
+		if(ret)
+		{
+			log_step = atof(log_step_str);
+		}
+
+		ret = false;
+		char* l_p_val_norm_win_str = cli->get_value_by_option("-l_p", ret);
+		if(ret)
+		{
+			l_p_val_norm_win = atoi(l_p_val_norm_win_str);
+		}
+
+		// Mapability correction window length.
+		ret = false;
+		char* l_mapability_filtering_win_str = cli->get_value_by_option("-l_c", ret);
+		if(ret)
+		{
+			l_mapability_filtering_win = atoi(l_mapability_filtering_win_str);
+		}
+
+		ret = false;
+		char* max_normalized_mapability_signal_str = cli->get_value_by_option("-mapp_thr", ret);
+		if(ret)
+		{
+			max_normalized_mapability_signal = atof(max_normalized_mapability_signal_str);
+		}
+
+		ret = false;
+		char* filtered_vs_non_filtered_max_scaler_str = cli->get_value_by_option("-gamma", ret);
+		if(ret)
+		{
+			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
+		}
+
+		write_logR_profiles(chip_reads_dir,
+							control_reads_dir, 
+							l_fragment,
+							mapability_signal_dir,
+							l_read_mapability_signal,
+							base_scale_l_win,
+							end_scale_l_win,
+							log_step,
+							l_mapability_filtering_win,
+							max_normalized_mapability_signal);
+
+		FILE* f_beacon = open_f("beacon.log", "a");
+		clock_t end_c = clock();
+		fprintf(f_beacon, "MUSIC finished writing decomposition in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fprintf(stderr, "MUSIC finished writing decomposition in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fclose(f_beacon);
+	} // -write_logR_signal option.
 	else if(strcmp(argv[1], "-write_MS_decomposition") == 0)
 	{
 		if(argc < 5)
@@ -978,6 +1118,7 @@ if(__DUMP_PEAK_MESSAGES__)
 	-mapp_thr [Multi-mapability signal threshold used in correction (1.2)]\n\
 	-l_frag [Fragment length (200)]\n\
 	-l_c [Mapability correction window length (2000)]\n\
+	-sigma [min(Fore/Back, Back/Fore) (.5)]\n\
 	-gamma [Min threshold for unsmoothed/smoothed (4)]\n\
 	-q_val [Maximum q-value for the reported ERs]", argv[0]);
 			exit(0);
@@ -1096,6 +1237,14 @@ if(__DUMP_PEAK_MESSAGES__)
 			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
 		}
 
+		double per_strand_evenness_fraction = -1;
+		ret = false;
+		char* per_strand_evenness_fraction_str = cli->get_value_by_option("-sigma", ret);
+		if(ret)
+		{
+			per_strand_evenness_fraction = atof(per_strand_evenness_fraction_str);
+		}
+
 		ret = false;
 		char* q_val_str = cli->get_value_by_option("-q_val", ret);
 		double q_val_threshold = 0.05;
@@ -1120,7 +1269,7 @@ if(__DUMP_PEAK_MESSAGES__)
 			filtered_vs_non_filtered_max_scaler,
 			signal_profile_scaler,    // Signal profile scaler.
 			0.05,   // RD based end pruning p-value.
-			.5,	// Forward/Reverse signal evenness.
+			per_strand_evenness_fraction,	// Forward/Reverse signal evenness.
 			P_VAL_PER_WIN_MEAN_SIGNAL, // p-value selection.
 			false,  // do_replace_profiles_w_smoothed_profiles
 			false,  // do_BJ_correction_on_minima
@@ -1153,6 +1302,7 @@ if(__DUMP_PEAK_MESSAGES__)
 	-mapp_thr [Multi-mapability signal threshold used in correction (1.2)]\n\
 	-l_frag [Fragment length (200)]\n\
 	-l_c [Mapability correction window length (2000)]\n\
+	-sigma [min(Fore/Back, Back/Fore) (.5)]\n\
 	-gamma [Min threshold for unsmoothed/smoothed (4)]\n\
 	-q_val [Maximum q-value for the reported ERs", argv[0]);
 			exit(0);
@@ -1270,6 +1420,14 @@ if(__DUMP_PEAK_MESSAGES__)
 			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
 		}
 
+		double per_strand_evenness_fraction = -1;
+		ret = false;
+		char* per_strand_evenness_fraction_str = cli->get_value_by_option("-sigma", ret);
+		if(ret)
+		{
+			per_strand_evenness_fraction = atof(per_strand_evenness_fraction_str);
+		}
+
 		ret = false;
 		char* q_val_str = cli->get_value_by_option("-q_val", ret);
 		double q_val_threshold = 0.05;
@@ -1294,7 +1452,7 @@ if(__DUMP_PEAK_MESSAGES__)
 			filtered_vs_non_filtered_max_scaler,
 			signal_profile_scaler,    // Signal profile scaler.
 			0.01,   // RD based end pruning p-value.
-			.5,	// Forward/Reverse signal evenness.
+			per_strand_evenness_fraction,	// Forward/Reverse signal evenness.
 			P_VAL_PER_WIN_MAX_SIGNAL, // p-value selection.
 			false,  // do_replace_profiles_w_smoothed_profiles
 			false,  // do_BJ_correction_on_minima
@@ -1328,6 +1486,7 @@ if(__DUMP_PEAK_MESSAGES__)
 	-l_frag [Fragment length (200)]\n\
 	-l_c [Mapability correction window length (2000)]\n\
 	-gamma [Min threshold for unsmoothed/smoothed (4)]\n\
+	-sigma [min(Fore/Back, Back/Fore) (.5)]\n\
 	-q_val [Maximum q-value for the reported ERs", argv[0]);
 			exit(0);
 		}
@@ -1444,6 +1603,14 @@ if(__DUMP_PEAK_MESSAGES__)
 			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
 		}
 
+		double per_strand_evenness_fraction = -1;
+		ret = false;
+		char* per_strand_evenness_fraction_str = cli->get_value_by_option("-sigma", ret);
+		if(ret)
+		{
+			per_strand_evenness_fraction = atof(per_strand_evenness_fraction_str);
+		}
+
 		ret = false;
 		char* q_val_str = cli->get_value_by_option("-q_val", ret);
 		double q_val_threshold = 0.05;
@@ -1468,7 +1635,7 @@ if(__DUMP_PEAK_MESSAGES__)
 			filtered_vs_non_filtered_max_scaler,
 			signal_profile_scaler,    // Signal profile scaler.
 			0.05,   // RD based end pruning p-value.
-			.5,	// Forward/Reverse signal evenness.
+			per_strand_evenness_fraction,	// Forward/Reverse signal evenness.
 			P_VAL_PER_WIN_MEAN_SIGNAL, // p-value selection.
 			false,  // do_replace_profiles_w_smoothed_profiles
 			false,  // do_BJ_correction_on_minima
@@ -1604,7 +1771,7 @@ if(__DUMP_PEAK_MESSAGES__)
 
 		double* log_factorials = buffer_log_factorials(1000*1000);
 
-		//FILE* f_win_stats = open_f("window_stats.txt", "w");
+		FILE* f_win_stats = open_f("window_stats.txt", "w");
 		for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
 		{
 			fprintf(stderr, "Processing chromosome %s\n", chr_ids->at(i_chr));
@@ -1726,13 +1893,14 @@ if(__DUMP_PEAK_MESSAGES__)
 						total_control > 0 &&
 						total_signal / (win_end-win_start) > 1)
 					{
-						//fprintf(f_win_stats, "%d\t%d\t%d\t%lf\t%lf\t%lf\n", 
-						//	i_chr, 
-						//	win_start, 
-						//	win_end, 
-						//	log_p_val,
-						//	total_signal,
-						//	total_control);
+						// Dump the window statistics.
+						fprintf(f_win_stats, "%d\t%d\t%d\t%lf\t%lf\t%lf\n", 
+							i_chr, 
+							win_start, 
+							win_end, 
+							log_p_val,
+							total_signal,
+							total_control);
 
 						// Set the counters per window length.
 						if(log_p_val < xlog(0.05))

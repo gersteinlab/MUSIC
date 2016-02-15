@@ -23,6 +23,8 @@
 #include "ms_peak_calling_utils.h"
 #include "wavfile.h"
 
+#include <algorithm>
+
 bool __DUMP_PEAK_CALLING_UTILS_MSGS__ = false;
 
 #define __UCHAR_MAPPABILITY__
@@ -31,6 +33,135 @@ bool __DUMP_PEAK_CALLING_UTILS_MSGS__ = false;
 bool __DBG__ = false;
 int g_dbg_l_new_profile = 10*1000*1000;
 int g_dbg_base_posn = 40*1000*1000;
+
+struct t_sig_bin
+{
+	double sig;
+	int posn;
+};
+
+bool sort_sig_bins_per_decreasing_signal(t_sig_bin* bin1, t_sig_bin* bin2)
+{
+	return(bin1->sig > bin2->sig);
+}
+
+void estimate_mass_distribution_stats_per_ERs(vector<t_annot_region*>* ER_regions, 
+											double* signal_profile, int l_profile, 
+											double* control_profile, int l_control, 
+											int n_bins,
+											double fraction_2_set, char* op_fp)
+{
+	fprintf(stderr, "Computing mass distribution statistics.\n");
+
+	// Divide each ER region into bins, compute the 
+	FILE* f_op = open_f(op_fp, "w");
+	for(int i_ER = 0; i_ER < (int)ER_regions->size(); i_ER++)
+	{
+		int l_ER = ER_regions->at(i_ER)->end - ER_regions->at(i_ER)->start + 1;
+		double total_ER_sig = 0;
+		for(int i = ER_regions->at(i_ER)->start; i <= ER_regions->at(i_ER)->end; i++)
+		{
+			total_ER_sig += signal_profile[i];
+		} // i loop.
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+{
+		fprintf(stderr, "Processing %s:%d-%d\n", ER_regions->at(i_ER)->chrom, ER_regions->at(i_ER)->start, ER_regions->at(i_ER)->end);
+}
+
+		// Bin the signal: Make sure there is bin length, otherwise algorithm will get stuck.
+		int l_bin = l_ER / n_bins;
+		if(l_bin == 0)
+		{
+			l_bin = 1;
+		}
+
+		// Bin, then generate the 
+		vector<t_sig_bin*>* signal_bins = new vector<t_sig_bin*>();
+		int cur_bin_start = ER_regions->at(i_ER)->start;
+		while(cur_bin_start+l_bin < ER_regions->at(i_ER)->end)
+		{
+			t_sig_bin* cur_bin = new t_sig_bin();
+			cur_bin->sig = 0;
+			cur_bin->posn = cur_bin_start;
+			for(int i = cur_bin_start; i < cur_bin_start+l_bin; i++)
+			{
+				cur_bin->sig += signal_profile[i];
+			} // i loop.
+
+			signal_bins->push_back(cur_bin);
+
+			cur_bin_start += l_bin;
+		} // binning loop.
+
+		// Note that the requested n_bins may not match the generated number of bins.
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+{
+		fprintf(stderr, "%d bins\n", (int)signal_bins->size());
+}
+
+		// Sort the bins with decreasing signal.
+		sort(signal_bins->begin(), signal_bins->end(), sort_sig_bins_per_decreasing_signal);
+
+		// Start going over the sorted bins, 
+		double current_cumulative_mass = 0;
+		double cumul_bin_start = 1000*1000*1000;
+		double cumul_bin_end = 0;
+		double mass_only_bin_covg = 0;	
+
+		// Go over the bin ranks and compute the total mass, mass only bin coverage, and cumulative coverage.
+		for(int i_bin = 0; i_bin < (int)signal_bins->size(); i_bin++)
+		{
+			// Update cumulative coverage.
+			if(cumul_bin_start > signal_bins->at(i_bin)->posn)
+			{
+				cumul_bin_start = signal_bins->at(i_bin)->posn;
+			}
+
+			if(cumul_bin_end < signal_bins->at(i_bin)->posn + l_bin)
+			{
+				cumul_bin_end = signal_bins->at(i_bin)->posn + l_bin;
+			}
+
+			// Mass only bin coverage increases by bin length at each bin rank.
+			mass_only_bin_covg += l_bin;
+
+			// Update the mass.
+			current_cumulative_mass += signal_bins->at(i_bin)->sig;
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+{
+fprintf(stderr, "%d. sorted bin @ %s:%d-%d: Cumul Mass: %.3f; mass_only_covg: %.3f, cumul_covg: %.3f\n", i_bin, 
+																								ER_regions->at(i_ER)->chrom, signal_bins->at(i_bin)->posn, signal_bins->at(i_bin)->posn+l_bin,
+																								current_cumulative_mass, 
+																								mass_only_bin_covg, 
+																								cumul_bin_end - cumul_bin_start);
+}
+
+			if(total_ER_sig * fraction_2_set <= current_cumulative_mass)
+			{
+				break;
+			}
+		} // i_bin loop.
+
+		// The mass statistic is the ratio between mass only coverage and the cumulative coverage of the bins.
+		double mass_stat = mass_only_bin_covg / (cumul_bin_end - cumul_bin_start);
+
+		fprintf(f_op, "%s\t%d\t%d\t%lf\n", ER_regions->at(i_ER)->chrom, ER_regions->at(i_ER)->start, ER_regions->at(i_ER)->end,
+			mass_stat);
+
+		//getc(stdin);
+
+		// Free memory:
+		for(int i_bin = 0; i_bin < (int)signal_bins->size(); i_bin++)
+		{
+			delete signal_bins->at(i_bin);
+		} // i_bin loop.
+		delete signal_bins;
+	} // i_ER loop.
+	fclose(f_op);
+}
 
 double* replace_profiles_for_debug(double* signal_profile, int l_profile, int base_posn, int l_new_profile)
 {
@@ -67,6 +198,8 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		}
 	} // i loop.
 
+	double target_FPRs = 0.10;
+
 	int n_wins = l_profile / l_p_win;
 
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
@@ -91,8 +224,16 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 	// Go over per signal values, 
 	double* log_factorials = buffer_log_factorials(1000*1000);
 	
+	// We need at least 50 windows in each denominator.
+	bool have_enough_wins = false;
+
+	int max_n_iters = 500;
+
 	bool constraint_satisfied = false;
-	for(int iter_i = 0;
+	double cur_p_val_FPR = 0;
+	double cur_FC_FPR = 0;
+	int iter_i = 0;
+	for(;
 		!constraint_satisfied
 		; iter_i++)
 	{
@@ -148,9 +289,19 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 			} // p-val insignificant check.
 		} // i_win loop.
 
+		// If there was never enough windows, update this.
+		if(!have_enough_wins)
+		{
+			have_enough_wins = ((n_p_val_sig_FC_sig + n_p_val_insig_FC_sig) > 100 &&
+								(n_p_val_sig_FC_sig + n_p_val_sig_FC_insig) > 100);
+		}
+
 		// Stopping criteria:
 		double p_val_fpr_estimate = n_p_val_insig_FC_sig / (n_p_val_sig_FC_sig + n_p_val_insig_FC_sig);
 		double FC_fpr_estimate = n_p_val_sig_FC_insig / (n_p_val_sig_FC_sig + n_p_val_sig_FC_insig); 
+
+		cur_p_val_FPR = p_val_fpr_estimate;
+		cur_FC_FPR = FC_fpr_estimate;
 
 if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 {
@@ -159,20 +310,27 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 			n_p_val_sig_FC_insig, (n_p_val_sig_FC_sig + n_p_val_sig_FC_insig), FC_fpr_estimate);
 }
 
+		// If we have tried a lot, just give up at this iteration.
+		if(iter_i >= max_n_iters)
+		{
+			break;
+		}
+
 		// Are we in good region? If so update the control to create a more stringent background.
-		if(p_val_fpr_estimate < .10 &&
-			FC_fpr_estimate < .10)
+		if(!have_enough_wins ||						// The number of accessible windows must increase as we make the background more stringent.
+			(p_val_fpr_estimate > target_FPRs ||	// This will decrease as we make control more stringent.
+			FC_fpr_estimate < target_FPRs))			// This will increase as we make control more stringent.
 		{
 			// Update the profile.
 			for(int i = 1; i < l_profile; i++)
 			{
-				window_averaged_signal_profile[i] += 1;
+				window_averaged_signal_profile[i] += .05;
 			} // i loop.
 
 			// Update the per window control signal.
 			for(int i_win = 0; i_win < n_wins; i_win++)
 			{
-				avg_per_l_p_win_control[i_win] += l_p_win;
+				avg_per_l_p_win_control[i_win] += l_p_win * 0.05;
 			} // i_win loop.			
 		}
 		else
@@ -180,6 +338,8 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 			break;
 		}
 	} // signal update loop.
+
+	fprintf(stderr, "Set the control profile in %d iterations (%.3f, %.3f)\n", iter_i, cur_p_val_FPR, cur_FC_FPR);
 
 	delete [] log_factorials;
 	delete [] avg_per_l_p_win_signal;
@@ -666,6 +826,191 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 	} // i_chr loop.
 }
 
+void write_logR_profiles(char* chip_reads_dir,
+							char* control_reads_dir, 
+							int l_fragment,
+							char* mapability_signal_dir,
+							int l_read_mapability_signal,
+							double base_scale_l_win,
+							double end_scale_l_win,
+							double log_step,
+							int l_mapability_filtering_win,
+							double max_normalized_mapability_signal)
+{
+	char chr_ids_fp[1000];
+	sprintf(chr_ids_fp, "%s/chr_ids.txt", chip_reads_dir);
+	vector<char*>* chr_ids = buffer_file(chr_ids_fp);
+	if(chr_ids == NULL)
+	{
+		fprintf(stderr, "Could not load the chromosome id's for the chip data.\n");
+		exit(0);
+	}
+
+	// Process each chromosome.
+	for(int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
+	{
+		fprintf(stderr, "Writing %s..", chr_ids->at(i_chr));
+
+		// Skip chromosome M for now.
+		if(strcmp(chr_ids->at(i_chr), "M") == 0)
+		{
+			continue;
+		}
+
+		// Generate the current signal profile.
+		int l_buffer = 300*1000*1000;
+		int l_profile = 0;
+		//int l_read = l_read_mapability_signal;
+		double* buffered_signal_profile = new double[l_buffer + 2];	
+		char cur_chr_chip_reads_fp[1000];
+		sprintf(cur_chr_chip_reads_fp, "%s/%s_mapped_reads.txt", chip_reads_dir, chr_ids->at(i_chr));
+		buffer_per_nucleotide_profile_no_buffer(cur_chr_chip_reads_fp, l_fragment, 
+			buffered_signal_profile, NULL, NULL,
+			l_buffer, l_profile);
+
+		// Check IP file.
+		if(!check_file(cur_chr_chip_reads_fp))
+		{
+			fprintf(stderr, "Processed IP reads for %s does not exist @ %s. Skipping.\n", chr_ids->at(i_chr), cur_chr_chip_reads_fp);
+			continue;
+		}
+
+		double* signal_profile = new double[l_profile + 2];	
+		for(int i = 1; i <= l_profile; i++)
+		{
+			signal_profile[i] = buffered_signal_profile[i];
+		} // i loop.
+		delete [] buffered_signal_profile;
+
+		// Generate the current control profile.
+		l_buffer = 300*1000*1000;
+		int l_control = 0;
+		double* buffered_control_profile = new double[l_buffer + 2];
+		char cur_chr_control_reads_fp[1000];
+		sprintf(cur_chr_control_reads_fp, "%s/%s_mapped_reads.txt", control_reads_dir, chr_ids->at(i_chr));
+		buffer_per_nucleotide_profile_no_buffer(cur_chr_control_reads_fp, l_fragment, 
+			buffered_control_profile, NULL, NULL, 
+			l_buffer, l_control);
+
+		double* control_profile = new double[l_control + 2];
+		for(int i = 1; i <= l_control; i++)
+		{
+			control_profile[i] = buffered_control_profile[i];
+		} // i loop.
+		delete [] buffered_control_profile;
+		
+//		// Load and process the mapability profile.
+//		char mapability_signal_profile_fp[1000];
+//		sprintf(mapability_signal_profile_fp, "%s/%s.bin", mapability_signal_dir, chr_ids->at(i_chr));
+//
+//		double* mapability_aware_smoothed_signal_profile = NULL;
+//		int l_mapability_profile = 0;
+//		if(check_file(mapability_signal_profile_fp))
+//		{
+//			double* mapability_signal_profile = NULL;
+//
+//if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+//			fprintf(stderr, "Smoothing the signal profile.\n");
+//			mapability_aware_smoothed_signal_profile = mapability_aware_median_filter(signal_profile, l_profile,
+//																					mapability_signal_profile, l_mapability_profile,
+//																					max_normalized_mapability_signal,
+//																					l_mapability_filtering_win);
+//
+//			delete [] mapability_signal_profile;
+//		} // mapability based filtering check.
+//		else
+//		{
+//			fprintf(stderr, "Mappability map is not found, skipping it.");
+//			mapability_aware_smoothed_signal_profile = new double[l_profile + 2];
+//			for(int i = 1; i <= l_profile; i++)
+//			{
+//				mapability_aware_smoothed_signal_profile[i] = signal_profile[i];
+//			} // i loop.
+//		}
+
+		// Scale the control with respect to signal.
+		double per_win_2DOF_lls_scaling_factor = 0;
+		double per_win_1DOF_lls_scaling_factor = 0;
+		double total_sig_scaling_factor = 0;
+		get_per_window_scaling_factors_for_profile1_per_profile2(control_profile, l_control, signal_profile, l_profile, 10000,
+																	per_win_2DOF_lls_scaling_factor,
+																	per_win_1DOF_lls_scaling_factor,
+																	total_sig_scaling_factor);
+
+		double scaling_factor = per_win_1DOF_lls_scaling_factor;
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+		fprintf(stderr, "Scaling control with factor of %lf\n", scaling_factor);
+
+		// Go over the whole control signal.
+		for(int i = 0; i < l_control; i++)
+		{
+			control_profile[i] *= scaling_factor;
+		} // i loop.
+
+		int l_logR_profile = (l_control < l_profile)?(l_control):(l_profile);
+		double* logR_profile = new double[l_logR_profile + 2];
+		memset(logR_profile, 0, sizeof(double) * (l_logR_profile + 1));
+
+		// Compute the log ratio signal.
+		for(int i = 1; i <= l_logR_profile; i++)
+		{
+			if(control_profile[i] > 0 && signal_profile[i] > 0)
+			{
+				logR_profile[i] = log(signal_profile[i] / control_profile[i]);
+			}
+			else
+			{
+			}
+		} // i loop.
+
+		// Dump the profile.
+		char cur_logR_profile_fp[1000];
+		sprintf(cur_logR_profile_fp, "%s/%s_logR.bin", chip_reads_dir, chr_ids->at(i_chr));
+		dump_per_nucleotide_binary_profile(logR_profile, l_logR_profile, cur_logR_profile_fp);
+
+		//// Now, do the multiscale decomposition, 
+		//vector<double>* scales_per_i_scale = new vector<double>();
+		//vector<double*>* filtered_tracks = multiscale_median_filter_data(mapability_aware_smoothed_signal_profile, l_profile, 
+		//																base_scale_l_win, end_scale_l_win, log_step, 
+		//																scales_per_i_scale, 
+		//																true,
+		//																false, 
+		//																false, 
+		//																false, 
+		//																NULL, 
+		//																NULL,
+		//																"temp");
+
+		//// Dump the tracks.
+		//for(int i_scale = 0; i_scale < (int)scales_per_i_scale->size(); i_scale++)
+		//{
+		//	char cur_decomp_fp[1000];
+		//	sprintf(cur_decomp_fp, "%s_scale_%d.bin", "temp", i_scale);
+
+		//	if(check_file(cur_decomp_fp))
+		//	{
+		//		int l_cur_decomp;
+		//		double* cur_filtered_track = load_per_nucleotide_binary_profile(cur_decomp_fp, l_cur_decomp);
+
+		//		// Delete the temp file.
+		//		remove(cur_decomp_fp);
+
+		//		char cur_bgr_fp[1000];
+		//		sprintf(cur_bgr_fp, "chr%s_scale_%d.bgr", chr_ids->at(i_chr), (int)(floor(scales_per_i_scale->at(i_scale))));
+		//		dump_bedGraph_per_per_nucleotide_binary_profile(cur_filtered_track, l_cur_decomp, chr_ids->at(i_chr), cur_bgr_fp);
+		//		delete [] cur_filtered_track;
+		//	}
+		//} // i_scale loop.
+		//delete filtered_tracks;
+
+		//delete scales_per_i_scale;
+		delete [] signal_profile;
+		delete [] control_profile;
+		//delete [] mapability_aware_smoothed_signal_profile;
+	} // i_chr loop.
+}
+
 void write_decomposition_bedGraphs(char* chip_reads_dir,
 		int l_fragment,
 		char* mapability_signal_dir,
@@ -831,31 +1176,31 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 }
 
 void get_peaks(char* chip_reads_dir,
-		char* control_reads_dir,
-		vector<char*>* chr_ids_2_use,
-		int l_fragment,
-		char* mapability_signal_dir,
-		int l_read_mapability_signal,
-		double base_scale_l_win,
-		double end_scale_l_win,
-		double log_step,
-		int l_bin,
-		int l_p_val_norm_win,
-		int l_mapability_filtering_win,
-		double max_normalized_mapability_signal,
-		double filtered_vs_non_filtered_max_scaler,
-		double signal_profile_scaling_factor,
-		double rd_end_pruning_p_val,
-		double min_per_strand_evennes_fraction,
-		int p_value_computation_type,
-		bool do_replace_profiles_w_smoothed_profiles,
-		bool do_BJ_correction_on_minima,
-		bool do_filter_minima_per_length_min_base_scale_l_win,
-		bool do_post_peak_p_value_minimization,
-		double p_val_min_pruning_flip_prob,
-		bool find_mappable_troughs,
-		double trimmed_SSER_p_value_cutoff,
-		double q_value_cutoff)
+				char* control_reads_dir,
+				vector<char*>* chr_ids_2_use,
+				int l_fragment,
+				char* mapability_signal_dir,
+				int l_read_mapability_signal,
+				double base_scale_l_win,
+				double end_scale_l_win,
+				double log_step,
+				int l_bin,
+				int l_p_val_norm_win,
+				int l_mapability_filtering_win,
+				double max_normalized_mapability_signal,
+				double filtered_vs_non_filtered_max_scaler,
+				double signal_profile_scaling_factor,
+				double rd_end_pruning_p_val,
+				double min_per_strand_evennes_fraction,
+				int p_value_computation_type,
+				bool do_replace_profiles_w_smoothed_profiles,
+				bool do_BJ_correction_on_minima,
+				bool do_filter_minima_per_length_min_base_scale_l_win,
+				bool do_post_peak_p_value_minimization,
+				double p_val_min_pruning_flip_prob,
+				bool find_mappable_troughs,
+				double trimmed_SSER_p_value_cutoff,
+				double q_value_cutoff)
 {
 	char test_op_bed_fp[1000];
 	sprintf(test_op_bed_fp, "ERs_%.1f_%.1f_%.2f_%d_%.1f.bed", base_scale_l_win, end_scale_l_win, log_step, l_p_val_norm_win, filtered_vs_non_filtered_max_scaler);
@@ -941,17 +1286,20 @@ void get_peaks(char* chip_reads_dir,
 			continue;
 		}
 
-		// TODO::Count the reads and generate the F/R ratio.
-		int n_F = 0;
-		int n_R = 0;
-		count_preprocessed_reads(cur_chr_chip_reads_fp, n_F, n_R);
-		if(n_F == 0 || n_R == 0)
+		// If the strand evenness fraction is not specified in the arguments, set it from the reads.
+		if(min_per_strand_evennes_fraction < 0)
 		{
-			min_per_strand_evennes_fraction = 0;
-		}
-		else
-		{
-			min_per_strand_evennes_fraction = MIN(((double)n_F/n_R), ((double)n_R/n_F)) / 2;
+			int n_F = 0;
+			int n_R = 0;
+			count_preprocessed_reads(cur_chr_chip_reads_fp, n_F, n_R);
+			if(n_F == 0 || n_R == 0)
+			{
+				min_per_strand_evennes_fraction = 0;
+			}
+			else
+			{
+				min_per_strand_evennes_fraction = MIN(((double)n_F/n_R), ((double)n_R/n_F)) / 2;
+			}
 		}
 
 		fprintf(stderr, "Chromosomal cross strand signal fraction threshold is %.3f\n", min_per_strand_evennes_fraction);
@@ -977,9 +1325,12 @@ void get_peaks(char* chip_reads_dir,
 			sprintf(cur_chr_control_reads_fp, "%s/%s_mapped_reads.txt", control_reads_dir, chr_ids->at(i_chr));
 		}
 
+		bool calling_wo_control = false;
 		if(control_reads_dir == NULL ||
 			!check_file(cur_chr_control_reads_fp))
 		{
+			calling_wo_control = true;
+
 			fprintf(stderr, "No control, setting up control signal profile.\n");
 
 			// Generate the control profile from the signal profile: scaled to match the p-val window and FPR requirement.
@@ -988,7 +1339,7 @@ void get_peaks(char* chip_reads_dir,
 		}
 		else
 		{
-			// Control profile exists, load it from the reads.
+			// Control profile exists, load it from the reads, then scale it.
 			l_buffer = 300*1000*1000;
 
 			// Reset l_control.
@@ -1007,7 +1358,28 @@ void get_peaks(char* chip_reads_dir,
 				control_profile[i] = buffered_control_profile[i];
 			} // i loop.
 			delete [] buffered_control_profile;
-		}
+
+			// Scale the control signal profile.
+			fprintf(stderr, "Scaling control signal profile.\n");
+			double per_win_2DOF_lls_scaling_factor = 0;
+			double per_win_1DOF_lls_scaling_factor = 0;
+			double total_sig_scaling_factor = 0;
+			get_per_window_scaling_factors_for_profile1_per_profile2(control_profile, l_control, signal_profile, l_profile, 10000,
+																		per_win_2DOF_lls_scaling_factor,
+																		per_win_1DOF_lls_scaling_factor,
+																		total_sig_scaling_factor);
+
+			double scaling_factor = per_win_1DOF_lls_scaling_factor;
+
+if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
+			fprintf(stderr, "Scaling control with factor of %lf\n", scaling_factor);
+
+			// Go over the whole control signal.
+			for(int i = 1; i <= l_control; i++)
+			{
+				control_profile[i] *= scaling_factor;
+			} // i loop.
+		} // control profile existence check.
 
 if(__DBG__)
 {
@@ -1064,27 +1436,6 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 		for(int i = 1; i <= l_profile; i++)
 		{
 			signal_profile[i] *= signal_profile_scaling_factor;
-		} // i loop.
-
-		// Scale the control with respect to signal.
-		fprintf(stderr, "Scaling control signal profile.\n");
-		double per_win_2DOF_lls_scaling_factor = 0;
-		double per_win_1DOF_lls_scaling_factor = 0;
-		double total_sig_scaling_factor = 0;
-		get_per_window_scaling_factors_for_profile1_per_profile2(control_profile, l_control, signal_profile, l_profile, 10000,
-																	per_win_2DOF_lls_scaling_factor,
-																	per_win_1DOF_lls_scaling_factor,
-																	total_sig_scaling_factor);
-
-		double scaling_factor = per_win_1DOF_lls_scaling_factor;
-
-if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
-		fprintf(stderr, "Scaling control with factor of %lf\n", scaling_factor);
-
-		// Go over the whole control signal.
-		for(int i = 1; i <= l_control; i++)
-		{
-			control_profile[i] *= scaling_factor;
 		} // i loop.
 
 		// Dump the signal and control profiles after fixing.
@@ -1163,6 +1514,10 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 				// Remove the false positive minima positions based on thresholding.
 				tune_regions_per_window_average_at_boundaries(per_scale_minima_regions->at(i_scale), signal_profile, l_profile,
 																0.05, 1000*1000);
+
+				/******************************************************************************************************
+				TODO::We should apply/check gamma at this point for the ERs that we merged.
+				******************************************************************************************************/
 
 				// Merge and replace the minima regions: Make sure that the merging is correctly performed here!
 				vector<t_annot_region*>* merged_tuned_per_scale_minima = merge_annot_regions(per_scale_minima_regions->at(i_scale), -1*l_bin*2);
@@ -1590,15 +1945,15 @@ if(__DUMP_PEAK_CALLING_UTILS_MSGS__)
 				// Compute the p-value with the option chosen.
 				if(p_value_computation_type == P_VAL_PER_WIN_MEAN_SIGNAL)
 				{
-						cur_region_log_p_val = get_binomial_pvalue_per_region_neighborhood_window_control(signal_profile, control_profile, 
-																			strand_filtered_peaks->at(i_reg)->start, strand_filtered_peaks->at(i_reg)->end, 
-																			NULL,
-																			l_fragment, 
-																			true, 
-																			l_p_val_norm_win,
-																			l_profile,
-																			l_control,
-																			1);
+					cur_region_log_p_val = get_binomial_pvalue_per_region_neighborhood_window_control(signal_profile, control_profile, 
+																		strand_filtered_peaks->at(i_reg)->start, strand_filtered_peaks->at(i_reg)->end, 
+																		NULL,
+																		l_fragment, 
+																		true, 
+																		l_p_val_norm_win,
+																		l_profile,
+																		l_control,
+																		1);
 				}
 				else if(p_value_computation_type == P_VAL_PER_WIN_MAX_SIGNAL)
 				{
@@ -1664,6 +2019,15 @@ if(__DBG__)
 				delete [] mapability_signal_profile;
 			}
 		} // mappable trough identification check.
+
+		// Dump the mass statistics.
+		char op_fp[1000];
+		sprintf(op_fp, "%s_mass_stats.bed", chr_ids->at(i_chr));
+		estimate_mass_distribution_stats_per_ERs(strand_filtered_peaks, 
+												signal_profile, l_profile, 
+												NULL, 0, 
+												20,
+												0.9, op_fp);
 
 		// Insert the pruned peaks to the end of peaks list.
 		all_peaks->insert(all_peaks->end(), strand_filtered_peaks->begin(), strand_filtered_peaks->end());

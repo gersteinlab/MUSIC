@@ -38,6 +38,17 @@ void write_decomposition_WAV(char* chip_reads_dir,
 		int l_mapability_filtering_win,
 		double max_normalized_mapability_signal);
 
+void write_logR_profiles(char* chip_reads_dir,
+							char* control_reads_dir, 
+							int l_fragment,
+							char* mapability_signal_dir,
+							int l_read_mapability_signal,
+							double base_scale_l_win,
+							double end_scale_l_win,
+							double log_step,
+							int l_mapability_filtering_win,
+							double max_normalized_mapability_signal);
+
 void write_decomposition_bedGraphs(char* chip_reads_dir,
 		int l_fragment,
 		char* mapability_signal_dir,
