@@ -134,6 +134,12 @@ double PeakSeq_slope(double* prof1_total_sigs_per_win, double* prof2_total_sigs_
 
     num = n_processed_wins * sxy - sx * sy;
     den = n_processed_wins * sxx - sx * sx;
+	
+	if(num == 0 || den == 0)
+	{
+		fprintf(stderr, "Normalization(1): Very low signal mapped.\n");
+		return(1.0);
+	}
 
 	return(num / den);
 }
@@ -151,6 +157,12 @@ double slope(double* prof1_total_sigs_per_win, double* prof2_total_sigs_per_win,
 		//num += control_frag_cnt->at(i) * chip_seq_frag_cnt->at(i);
 		//den += control_frag_cnt->at(i) * control_frag_cnt->at(i);
 	} // i loop
+
+	if(num == 0 || den == 0)
+	{
+		fprintf(stderr, "Normalization(2): Very low signal mapped.\n");
+		return(1.0);
+	}
 
 	return(num / den);
 }

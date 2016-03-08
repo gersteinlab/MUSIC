@@ -19,7 +19,7 @@ ${LIB_DIR}/main.o \
 ${LIB_DIR}/ms_peak_calling_utils.o \
 ${LIB_DIR}/ms_mapped_read_tools.o \
 ${LIB_DIR}/ms_nomenclature.o \
-${LIB_DIR}/ms_gsl_fft_filter_utils.o \
+${LIB_DIR}/ms_filter_utils.o \
 ${LIB_DIR}/ms_annot_region_tools.o \
 ${LIB_DIR}/ms_signal_track_tools.o \
 ${LIB_DIR}/ms_signal_enrichment_utils.o \

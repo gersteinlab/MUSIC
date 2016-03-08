@@ -14,7 +14,7 @@
 #include <math.h>
 #include <algorithm>
 #include "ms_min_max_utils.h"
-#include "ms_gsl_fft_filter_utils.h"
+#include "ms_filter_utils.h"
 #include "ms_mapped_read_tools.h"
 #include "ms_profile_normalization.h"
 #include "ms_combinatorics.h"
@@ -1165,6 +1165,7 @@ void get_peaks(char* chip_reads_dir,
 		if(!check_file(cur_chr_chip_reads_fp))
 		{
 			fprintf(stderr, "Processed IP reads for %s does not exist @ %s. Skipping.\n", chr_ids->at(i_chr), cur_chr_chip_reads_fp);
+			delete [] buffered_signal_profile;
 			continue;
 		}
 

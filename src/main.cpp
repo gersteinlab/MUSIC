@@ -8,7 +8,7 @@
 #include <algorithm>
 
 #include "ms_ansi_cli.h"
-#include "ms_gsl_fft_filter_utils.h"
+#include "ms_filter_utils.h"
 #include "ms_mapped_read_tools.h"
 #include "ms_profile_normalization.h"
 #include "ms_utils.h"
@@ -968,8 +968,8 @@ if(__DUMP_PEAK_MESSAGES__)
 
 		FILE* f_beacon = open_f("beacon.log", "a");
 		clock_t end_c = clock();
-		fprintf(f_beacon, "MUSIC finished writing decomposition in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
-		fprintf(stderr, "MUSIC finished writing decomposition in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fprintf(f_beacon, "MUSIC finished writing logR profiles in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
+		fprintf(stderr, "MUSIC finished writing logR profiles in %d seconds.\n", (int)((end_c - start_c) / CLOCKS_PER_SEC));
 		fclose(f_beacon);
 	} // -write_logR_signal option.
 	else if(strcmp(argv[1], "-write_MS_decomposition") == 0)

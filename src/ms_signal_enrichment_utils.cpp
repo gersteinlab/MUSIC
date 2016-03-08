@@ -14,7 +14,7 @@
 #include <math.h>
 #include <algorithm>
 #include "ms_min_max_utils.h"
-#include "ms_gsl_fft_filter_utils.h"
+#include "ms_filter_utils.h"
 #include "ms_mapped_read_tools.h"
 #include "ms_profile_normalization.h"
 #include "ms_combinatorics.h"

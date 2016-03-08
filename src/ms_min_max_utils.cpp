@@ -4,7 +4,7 @@
 #include <math.h>
 #include <algorithm>
 #include "ms_min_max_utils.h"
-#include "ms_gsl_fft_filter_utils.h"
+#include "ms_filter_utils.h"
 #include "ms_utils.h"
 #include "ms_combinatorics.h"
 #include "ms_xlog_math.h"
