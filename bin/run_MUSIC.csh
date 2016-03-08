@@ -37,7 +37,16 @@ then
 	elif [[ "$read_file_name" == *.bowtie.gz ]]
 	then
 		gzip -cd $2 | MUSIC -preprocess bowtie stdin $output_dir
+	elif [[ "$read_file_name" == *.sam ]]
+	then
+		cat $2 | MUSIC -preprocess SAM stdin $output_dir
+	elif [[ "$read_file_name" == *.SAM ]]
+	then
+		cat $2 | MUSIC -preprocess SAM stdin $output_dir
 	elif [[ "$read_file_name" == *.bam ]]
+	then
+		samtools view $2 | MUSIC -preprocess SAM stdin $output_dir
+	elif [[ "$read_file_name" == *.BAM ]]
 	then
 		samtools view $2 | MUSIC -preprocess SAM stdin $output_dir
 	fi
