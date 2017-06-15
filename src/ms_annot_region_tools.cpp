@@ -2523,7 +2523,7 @@ vector<t_annot_region*>* subtract_annot_regions(vector<t_annot_region*>* regions
 					cur_left_i--;
 				} // cur_left_i loop.
 
-				bool found_overlap = false;
+				//bool found_overlap = false;
 
 				// Move over the region 1 and get rid of pieces.
 				while(cur_left_i < (int)cur_chr_regs2->size() && 
@@ -2535,7 +2535,7 @@ vector<t_annot_region*>* subtract_annot_regions(vector<t_annot_region*>* regions
 
 					if(ol_start <= ol_end)
 					{
-						found_overlap = true;
+						//found_overlap = true;
 						// Region2 overlaps with region1. Find the remaining regions based on the overlap.
 
 						// Add the remaining regions: These are the parts that are outside the 

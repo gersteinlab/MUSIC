@@ -856,10 +856,8 @@ if(__DUMP_PEAK_MESSAGES__)
 		double base_scale_l_win = 1000;
 		double end_scale_l_win = 16000; 
 		double log_step = 1.5;
-		int l_p_val_norm_win = 1750;
 		int l_mapability_filtering_win = 2000;
 		double max_normalized_mapability_signal = 1.2;
-		double filtered_vs_non_filtered_max_scaler = 4;
 		int l_fragment = 200;
 
 		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
@@ -926,13 +924,6 @@ if(__DUMP_PEAK_MESSAGES__)
 			log_step = atof(log_step_str);
 		}
 
-		ret = false;
-		char* l_p_val_norm_win_str = cli->get_value_by_option("-l_p", ret);
-		if(ret)
-		{
-			l_p_val_norm_win = atoi(l_p_val_norm_win_str);
-		}
-
 		// Mapability correction window length.
 		ret = false;
 		char* l_mapability_filtering_win_str = cli->get_value_by_option("-l_c", ret);
@@ -946,13 +937,6 @@ if(__DUMP_PEAK_MESSAGES__)
 		if(ret)
 		{
 			max_normalized_mapability_signal = atof(max_normalized_mapability_signal_str);
-		}
-
-		ret = false;
-		char* filtered_vs_non_filtered_max_scaler_str = cli->get_value_by_option("-gamma", ret);
-		if(ret)
-		{
-			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
 		}
 
 		write_logR_profiles(chip_reads_dir,
@@ -994,10 +978,8 @@ if(__DUMP_PEAK_MESSAGES__)
 		double base_scale_l_win = 1000;
 		double end_scale_l_win = 16000; 
 		double log_step = 1.5;
-		int l_p_val_norm_win = 1750;
 		int l_mapability_filtering_win = 2000;
 		double max_normalized_mapability_signal = 1.2;
-		double filtered_vs_non_filtered_max_scaler = 4;
 		int l_fragment = 200;
 
 		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
@@ -1057,13 +1039,6 @@ if(__DUMP_PEAK_MESSAGES__)
 			log_step = atof(log_step_str);
 		}
 
-		ret = false;
-		char* l_p_val_norm_win_str = cli->get_value_by_option("-l_p", ret);
-		if(ret)
-		{
-			l_p_val_norm_win = atoi(l_p_val_norm_win_str);
-		}
-
 		// Mapability correction window length.
 		ret = false;
 		char* l_mapability_filtering_win_str = cli->get_value_by_option("-l_c", ret);
@@ -1077,13 +1052,6 @@ if(__DUMP_PEAK_MESSAGES__)
 		if(ret)
 		{
 			max_normalized_mapability_signal = atof(max_normalized_mapability_signal_str);
-		}
-
-		ret = false;
-		char* filtered_vs_non_filtered_max_scaler_str = cli->get_value_by_option("-gamma", ret);
-		if(ret)
-		{
-			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
 		}
 
 		write_decomposition_bedGraphs(chip_reads_dir,
@@ -2468,11 +2436,8 @@ if(__DUMP_PEAK_MESSAGES__)
 		double base_scale_l_win = 100;
 		double end_scale_l_win = 1000000; 
 		double log_step = 1.5;
-		int l_p_val_norm_win = 1750;
 		int l_mapability_filtering_win = 2000;
 		double max_normalized_mapability_signal = 1.2;
-		double filtered_vs_non_filtered_max_scaler = 4;
-		//double signal_profile_scaler = 1;
 		int l_fragment = 200;
 
 		t_ansi_cli* cli = new t_ansi_cli(argc, argv, "-");
@@ -2532,13 +2497,6 @@ if(__DUMP_PEAK_MESSAGES__)
 			log_step = atof(log_step_str);
 		}
 
-		ret = false;
-		char* l_p_val_norm_win_str = cli->get_value_by_option("-l_p", ret);
-		if(ret)
-		{
-			l_p_val_norm_win = atoi(l_p_val_norm_win_str);
-		}
-
 		// Mapability correction window length.
 		ret = false;
 		char* l_mapability_filtering_win_str = cli->get_value_by_option("-l_c", ret);
@@ -2552,13 +2510,6 @@ if(__DUMP_PEAK_MESSAGES__)
 		if(ret)
 		{
 			max_normalized_mapability_signal = atof(max_normalized_mapability_signal_str);
-		}
-
-		ret = false;
-		char* filtered_vs_non_filtered_max_scaler_str = cli->get_value_by_option("-gamma", ret);
-		if(ret)
-		{
-			filtered_vs_non_filtered_max_scaler = atof(filtered_vs_non_filtered_max_scaler_str);
 		}
 
 		write_decomposition_WAV(chip_reads_dir,

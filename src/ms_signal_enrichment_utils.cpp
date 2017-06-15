@@ -1376,12 +1376,12 @@ if(__DUMP_SIGNAL_ENRICHMENT_MSGS__)
 			int pruned_start = regions->at(i_reg)->start;
 			int pruned_end = regions->at(i_reg)->end;
 
-			bool passed_threshold = false;
+			//bool passed_threshold = false;
 			for(int i_pr = pruned_start; i_pr <= pruned_end; i_pr++)
 			{
 				if(signal_profile[i_pr] > sig_thresh)
 				{
-					passed_threshold = true;
+					//passed_threshold = true;
 					pruned_start = i_pr;
 					break;
 				}
@@ -1561,12 +1561,12 @@ if(__DUMP_SIGNAL_ENRICHMENT_MSGS__)
 			int pruned_start = regions->at(i_reg)->start;
 			int pruned_end = regions->at(i_reg)->end;
 
-			bool passed_threshold = false;
+			//bool passed_threshold = false;
 			for(int i_pr = pruned_start; i_pr <= pruned_end; i_pr++)
 			{
 				if(signal_profile[i_pr] > sig_thresh)
 				{
-					passed_threshold = true;
+					//passed_threshold = true;
 					pruned_start = i_pr;
 					break;
 				}
@@ -1768,12 +1768,12 @@ if(__DUMP_SIGNAL_ENRICHMENT_MSGS__)
 			int pruned_start = regions->at(i_reg)->start;
 			int pruned_end = regions->at(i_reg)->end;
 
-			bool passed_threshold = false;
+			//bool passed_threshold = false;
 			for(int i_pr = pruned_start; i_pr <= pruned_end; i_pr++)
 			{
 				if(signal_profile[i_pr] > sig_thresh)
 				{
-					passed_threshold = true;
+					//passed_threshold = true;
 					pruned_start = i_pr;
 					break;
 				}

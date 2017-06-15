@@ -327,7 +327,7 @@ vector<t_annot_region*>* merge_SSERs_2_features_per_chromosome(vector<t_annot_re
 
 		//Start from top scale and check whether there is a significant merged SSER.
 		bool found_cur_reg_scale = false;
-		int found_scale_i = 0;
+		//int found_scale_i = 0;
 		for(int scale_i = per_scale_SSERs->size()-1; scale_i >= 0; scale_i--)
 		{
 			for(int cur_scale_reg_i = 0; cur_scale_reg_i < (int)(cur_regs_per_scale_SSERs[scale_i]->size()); cur_scale_reg_i++)
@@ -359,7 +359,7 @@ vector<t_annot_region*>* merge_SSERs_2_features_per_chromosome(vector<t_annot_re
 					//	sig_info->log_p_val);
 				} // cur_scale_reg_i loop.
 
-				found_scale_i = scale_i;
+				//found_scale_i = scale_i;
 
 				break;
 			}
@@ -1208,12 +1208,9 @@ void get_peaks(char* chip_reads_dir,
 			sprintf(cur_chr_control_reads_fp, "%s/%s_mapped_reads.txt", control_reads_dir, chr_ids->at(i_chr));
 		}
 
-		bool calling_wo_control = false;
 		if(control_reads_dir == NULL ||
 			!check_file(cur_chr_control_reads_fp))
 		{
-			calling_wo_control = true;
-
 			fprintf(stderr, "No control, setting up control signal profile.\n");
 
 			// Generate the control profile from the signal profile: scaled to match the p-val window and FPR requirement.
