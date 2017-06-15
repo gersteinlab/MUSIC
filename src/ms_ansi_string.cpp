@@ -25,6 +25,39 @@ t_string::t_string(const char* string)
 }
 
 // This is the memset from string library.
+void t_string::set_byte_buffer(void* buffer, long int n_bytes_2_set, char val_2_set)
+{
+	uint8_t* byte_buff = (uint8_t*)buffer;
+	for(long int i_8b = 0; i_8b < n_bytes_2_set; i_8b++)
+	{
+		byte_buff[i_8b] = val_2_set;
+	} // i_char loop.
+
+	//uint64_t* large_buff = (uint64_t*)buffer;
+	//long int n_64b_vals = n_bytes_2_set / 8;
+	//int n_8b_vals = n_bytes_2_set % 8;
+	//fprintf(stderr, "%d 64b vals, %d 8b vals.\n", n_64b_vals, n_8b_vals);
+	//uint64_t large_val_2_set = (val_2_set << 56) + 
+	//							(val_2_set << 48) + 
+	//							(val_2_set << 40) + 
+	//							(val_2_set << 32) + 
+	//							(val_2_set << 24) + 
+	//							(val_2_set << 16) + 
+	//							(val_2_set << 8) + 
+	//							val_2_set;
+
+	//for(long int i_64b = 0; i_64b < n_64b_vals; i_64b++)
+	//{
+	//	large_buff[i_64b] = large_val_2_set;
+	//} // i_char loop.
+
+	//uint8_t* byte_buff = (uint8_t*)buffer;
+	//for(int i_8b = n_64b_vals*8; i_8b < n_64b_vals*8+n_8b_vals; i_8b++)
+	//{
+	//	byte_buff[i_8b] = val_2_set;
+	//} // i_char loop.
+}
+
 t_string::t_string(t_string* string)
 {
 	// Allocate the memory.
@@ -498,6 +531,12 @@ char* t_string::substring(int i, int j)
 	sub_str[i_sub_str] = 0;
 
 	return(sub_str);
+}
+
+// This is a simple fuzzy string comparison.
+char* t_string::get_longest_matching_substring(char* string1, char* string2)
+{
+	return(NULL);
 }
 
 bool t_string::is_empty(char* string)
