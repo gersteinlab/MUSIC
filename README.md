@@ -114,6 +114,15 @@ The entries are sorted with respect to increasing Q-values.
 
 Note that MUSIC reports log_10(Q-values) and not -log_10(Q-value).
 
+<h2>Issue with Vieweing BED file in IGV</h2>
+If you are vieweing the BED file with IGV, it sometimes does not plot the ERs correctly. If you wish to look at the bed file in IGV, use only the first 6 columns in the file:
+<div style="padding:8px;background-color:#ddd;line-height:1.4;">
+<font face="courier">
+cut -f1-6 ERs_1000.0_16000.0_1.50_1750_4.0.bed > ERs.bed
+</font>
+</div>
+then open ERs.bed in IGV.
+
 <h2>Parameter Selection Guideline for the Studied ChIP-Seq Datasets</h2>
 MUSIC has a set of default parameter sets for broad marks (like H3K36me3, H3K27me3), punctate marks (H3K4me3), and point binding (like transcription factors) which work well in most 
 cases. When one is not sure about the ER scale spectrum for a signal profile at hand, one can perform a scale spectrum analysis using a large spectrum with dense sampling and get an 
