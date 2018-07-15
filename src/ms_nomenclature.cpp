@@ -6,6 +6,8 @@
 
 void normalize_chr_id(char* raw_chr_id)
 {
+	t_string::replace_avoid_list(raw_chr_id, "+-./\*^$#@!&()~+=?\"`][}{", '_');
+
 	if(t_string::starts_with(raw_chr_id, "chr") || 
 		t_string::starts_with(raw_chr_id, "Chr") ||
 		t_string::starts_with(raw_chr_id, "CHR"))
