@@ -41,6 +41,9 @@ Peak Selection:\n\
 Profile Outputs:\n\
 	-write_MS_decomposition [Options/Values]\n\
 	-write_logR_signal [Options/Values]\n\
+Fragment Length Estimation:\n\
+	-estimate_fragment_length\n\
+	-cross_correlation\n\
 Parametrization Options:\n\
 	-get_per_win_p_vals_vs_FC [Options/Values]\n\
 	-get_scale_spectrum [Options/Values]\n\
@@ -156,6 +159,223 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "MUSIC finished preprocessing %s formatted reads in %d seconds.\n", format_str, (int)((end_c - start_c) / CLOCKS_PER_SEC));
 		fclose(f_beacon);
 	} // -preprocess option.
+	else if (strcmp(argv[1], "-estimate_fragment_length") == 0)
+	{
+		if (argc != 5)
+		{
+			fprintf(stderr, "USAGE: %s -estimate_fragment_length [Preprocessed reads directory] [Min separation] [Max separation]\n", argv[0]);
+			exit(0);
+		}
+
+		char* preprocessed_reads_dir = argv[2];
+		int min_separation = atoi(argv[3]);
+		int max_separation = atoi(argv[4]);
+
+		char chr_ids_fp[1000];
+		sprintf(chr_ids_fp, "%s/chr_ids.txt", preprocessed_reads_dir);
+		vector<char*>* chr_ids = buffer_file(chr_ids_fp);
+		if (chr_ids == NULL)
+		{
+			fprintf(stderr, "Could not load chromosome id's from %s\n", chr_ids_fp);
+			exit(0);
+		}
+
+		double* per_separ_merged_cnts = new double[max_separation - min_separation + 2];
+		memset(per_separ_merged_cnts, 0, sizeof(double) * (max_separation - min_separation + 2));
+		per_separ_merged_cnts -= min_separation;
+		for (int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
+		{
+			fprintf(stderr, "Estimating fragment length for %s\n", chr_ids->at(i_chr));
+
+			char cur_chrom_reads_fp[1000];
+			sprintf(cur_chrom_reads_fp, "%s/%s_mapped_reads.txt", preprocessed_reads_dir, chr_ids->at(i_chr));
+
+			// Get the forward and reverse profiles.
+			int l_buffer = get_l_signal_per_reads(cur_chrom_reads_fp, 200);
+			fprintf(stderr, "Buffer length is %d\n", l_buffer);
+			int* fore_profile = new int[l_buffer + 10];
+			memset(fore_profile, 0, sizeof(int) * (l_buffer + 2));
+			int* rev_profile = new int[l_buffer + 10];
+			memset(rev_profile, 0, sizeof(int) * (l_buffer + 2));
+
+			// Open and load the mapped reads file, update the profiles.
+			FILE* f_mapped_reads = open_f(cur_chrom_reads_fp, "r");
+			while (1)
+			{
+				int chr_index;
+				char cur_cigar[1000];
+				char cur_strand;
+				if (fscanf(f_mapped_reads, "%s %c %d", cur_cigar, &cur_strand, &chr_index) == 3)
+				{
+					int l_cur_entry;
+					int i_mapp_map = 0;
+					bool is_matching = 0;
+					char entry_type_char;
+
+					bool is_read_spliced = false;
+					//bool mapping_map_str_valid = validate_mapping_map_str(cur_cigar, is_read_spliced);
+
+					if (is_read_spliced)
+					{
+						// Skip the spliced reads for the analysis.
+					}
+					else
+					{
+						get_next_entry_per_mapp_map_string(cur_cigar,
+							i_mapp_map,
+							is_matching,
+							l_cur_entry,
+							entry_type_char);
+
+
+						if (is_matching == true)
+						{
+							if (cur_strand == 'R')
+							{
+								rev_profile[chr_index + l_cur_entry] = 1;
+							}
+							else if (cur_strand == 'F')
+							{
+								fore_profile[chr_index] = 1;
+							}
+							else
+							{
+								fprintf(stderr, "Invalid strand character: %c\n", cur_strand);
+								exit(0);
+							}
+						}
+					} // Spliced read check.
+				}
+				else
+				{
+					break;
+				}
+			} // file reading loop.
+			fclose(f_mapped_reads);
+
+			// Start pushing the forward strand on backward strand signal.
+			//int* overlaps_per_separation = new int[max_separation - min_separation + 1];
+			char per_separ_overlap_cnts_fp[1000];
+			sprintf(per_separ_overlap_cnts_fp, "per_separation_counts_%s.txt", chr_ids->at(i_chr));
+			FILE* f_per_separ_overlap = open_f(per_separ_overlap_cnts_fp, "w");
+			for (int cur_sep = min_separation; cur_sep <= max_separation; cur_sep++)
+			{
+				fprintf(stderr, "Processing separation of %d nucleotides.               \r", cur_sep);
+				double cur_separ_merged_cnt = 0;
+				for (int i = 1; i <= l_buffer; i++)
+				{
+					if (i + cur_sep < l_buffer)
+					{
+						//overlaps_per_separation[cur_sep-min_separation] += (fore_profile[i+cur_sep] * rev_profile[i]);
+						if (fore_profile[i] > 0 && rev_profile[i + cur_sep] > 0)
+						{
+							cur_separ_merged_cnt++;
+						}
+					}
+				} // i loop.
+
+				fprintf(f_per_separ_overlap, "%d\t%lf\n", cur_sep, cur_separ_merged_cnt);
+				per_separ_merged_cnts[cur_sep] += cur_separ_merged_cnt;
+			} // cur_sep loop.
+
+			fclose(f_per_separ_overlap);
+
+			delete[] fore_profile;
+			delete[] rev_profile;
+		} // i_chr loop.
+
+		  // Dump the aggregate merged counts.
+		int estimated_l_frag = 0;
+		double min_separation_merged_cnts = 1000 * 1000 * 1000;
+		FILE* f_aggregate_merged_cnts = open_f("aggregate_per_separation_counts.txt", "w");
+		for (int cur_sep = min_separation; cur_sep <= max_separation; cur_sep++)
+		{
+			fprintf(f_aggregate_merged_cnts, "%d\t%lf\n", cur_sep, per_separ_merged_cnts[cur_sep]);
+
+			if (min_separation_merged_cnts > per_separ_merged_cnts[cur_sep])
+			{
+				min_separation_merged_cnts = per_separ_merged_cnts[cur_sep];
+				estimated_l_frag = cur_sep;
+			}
+		} // cur_sep loop.
+		fclose(f_aggregate_merged_cnts);
+
+		fprintf(stderr, "Estimated fragment length is %d\n", estimated_l_frag);
+	} // -estimate_fragment_length
+	else if (strcmp(argv[1], "-cross_correlation") == 0)
+	{
+		if (argc != 6)
+		{
+			fprintf(stderr, "USAGE: %s -cross_correlation [Preprocessed reads directory] [chr id to use] [Min separation] [Max separation]\n", argv[0]);
+			exit(0);
+		}
+
+		char* preprocessed_reads_dir = argv[2];
+		char* chr_id = argv[3];
+		int min_separation = atoi(argv[4]);
+		int max_separation = atoi(argv[5]);
+
+		char chr_ids_fp[1000];
+		sprintf(chr_ids_fp, "%s/chr_ids.txt", preprocessed_reads_dir);
+		vector<char*>* chr_ids = buffer_file(chr_ids_fp);
+		if (chr_ids == NULL)
+		{
+			fprintf(stderr, "Could not load chromosome id's from %s\n", chr_ids_fp);
+			exit(0);
+		}
+
+		for (int i_chr = 0; i_chr < (int)chr_ids->size(); i_chr++)
+		{
+			if (!t_string::compare_strings(chr_id, chr_ids->at(i_chr)))
+			{
+				continue;
+			}
+
+			fprintf(stderr, "Estimating fragment length for %s\n", chr_ids->at(i_chr));
+
+			char cur_chrom_reads_fp[1000];
+			sprintf(cur_chrom_reads_fp, "%s/%s_mapped_reads.txt", preprocessed_reads_dir, chr_ids->at(i_chr));
+
+			// Get the forward and reverse profiles.
+			int l_buffer = get_l_signal_per_reads(cur_chrom_reads_fp, 200);
+			//fprintf(stderr, "Buffer length is %d\n", l_buffer);
+			double* fore_profile = new double[l_buffer + 10];
+			memset(fore_profile, 0, sizeof(double) * (l_buffer + 2));
+			double* rev_profile = new double[l_buffer + 10];
+			memset(rev_profile, 0, sizeof(double) * (l_buffer + 2));
+
+			int l_data;
+			buffer_per_nucleotide_profile_no_buffer(cur_chrom_reads_fp, 1, NULL, fore_profile, rev_profile, l_buffer, l_data);
+
+			char per_separ_corrs_fp[1000];
+			sprintf(per_separ_corrs_fp, "%s/per_separation_correlations_%s.txt", preprocessed_reads_dir, chr_ids->at(i_chr));
+			FILE* f_per_separ_corrs = open_f(per_separ_corrs_fp, "w");
+			for (int cur_sep = min_separation; cur_sep <= max_separation; cur_sep++)
+			{
+				fprintf(stderr, "Processing separation %d nucleotides.            \r", cur_sep);
+
+				double cur_win_corr = 0.0;
+				//get_correlation(&(rev_profile[cur_sep]), fore_profile, l_data - cur_sep, cur_win_corr);
+				for (int i = 1; i <= l_buffer; i++)
+				{
+					if (i + cur_sep < l_buffer)
+					{
+						if (fore_profile[i] > 0 || rev_profile[i + cur_sep] > 0)
+						{
+							cur_win_corr += fore_profile[i] * rev_profile[i + cur_sep];
+						}
+					}
+				} // i loop.
+
+				fprintf(f_per_separ_corrs, "%d\t%lf\n", cur_sep, cur_win_corr);
+			} // cur_sep loop.
+
+			fclose(f_per_separ_corrs);
+
+			delete[] fore_profile;
+			delete[] rev_profile;
+		} // i_chr loop.
+	} // -cross_correlation.
 	else if(strcmp(argv[1], "-sort_reads") == 0)
 	{
 		if(argc != 4)
@@ -892,7 +1112,7 @@ if(__DUMP_PEAK_MESSAGES__)
 		}
 		else if(mapability_signal_dir != NULL)
 		{
-			fprintf(stderr, "Could not read the mapability read length.\n");
+			fprintf(stderr, "Could not read the mappability read length.\n");
 			exit(0);
 		}
 
@@ -2537,7 +2757,8 @@ if(__DUMP_PEAK_MESSAGES__)
 		FILE* f_fasta = open_f(fasta_fp, "r");
 
 		char* cur_line = NULL;
-		char* cur_entry_buffer = new char[250 * 1000 * 1000];
+		int buff_len = 2000 * 1000 * 1000;
+		char* cur_entry_buffer = new char[buff_len];
 		int cur_entry_i = 0;
 		char cur_entry_id[1000];
 
