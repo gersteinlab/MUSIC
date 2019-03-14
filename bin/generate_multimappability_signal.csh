@@ -7,7 +7,7 @@ fi
 
 fasta_fp=$1;
 l_read=$2;
-bt2_prefix=$3;
+abs_bt2_prefix=$3;
 
 if [ ! -e $fasta_fp ]
 then
@@ -35,7 +35,7 @@ rm -f temp_map_reads.csh
 for chr_id in ${chr_ids[@]}
 do
 	mkdir temp/${chr_id}
-	echo "MUSIC -fragment_sequence_2_stdout temp/${chr_id}.bin ${l_read} read | bowtie2 -x ${bt2_prefix} -k 5 -p 4 -f -S /dev/stdout -U - | MUSIC -preprocess SAM stdin temp/${chr_id}" >> temp_map_reads.csh
+	echo "MUSIC -fragment_sequence_2_stdout ${PWD}/temp/${chr_id}.bin ${l_read} read | bowtie2 -x ${abs_bt2_prefix} -k 5 -p 4 -f -S /dev/stdout -U - | MUSIC -preprocess SAM stdin ${PWD}/temp/${chr_id}" >> temp_map_reads.csh
 done
 chmod 755 temp_map_reads.csh
 
