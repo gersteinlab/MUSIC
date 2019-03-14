@@ -1,7 +1,7 @@
 #!/bin/bash
 if [ $# != 3 ]
 then
-        echo "USAGE: $0 [FASTA file path] [Read length] [bowtie2 index path]"
+        echo "USAGE: $0 [FASTA file path] [Read length] [Absolute path to bowtie2 index + prefix]"
         exit 0;
 fi
 
@@ -27,8 +27,6 @@ then
 	exit 0;
 fi
 
-cwd=${PWD}
-
 chr_ids=(`cat temp/chr_ids.txt`);
 
 # Process all the chromosomes.
@@ -36,9 +34,8 @@ echo "Writing mapping commands."
 rm -f temp_map_reads.csh
 for chr_id in ${chr_ids[@]}
 do
-	mkdir ${cwd}/temp/${chr_id}
-	#echo "MUSIC -fragment_sequence_2_stdout ${cwd}/temp/${chr_id}.bin ${l_read} read | bowtie2 -x ${cwd}/${bt2_prefix} -k 5 -p 4 -f -S /dev/stdout -U /dev/stdin | MUSIC -preprocess SAM stdin ${cwd}/temp/${chr_id}" >> temp_map_reads.csh
-	echo "MUSIC -fragment_sequence_2_stdout ${cwd}/temp/${chr_id}.bin ${l_read} read | bowtie2 -x ${cwd}/${bt2_prefix} -k 5 -p 4 -f -S /dev/stdout -U - | MUSIC -preprocess SAM stdin ${cwd}/temp/${chr_id}" >> temp_map_reads.csh
+	mkdir temp/${chr_id}
+	echo "MUSIC -fragment_sequence_2_stdout temp/${chr_id}.bin ${l_read} read | bowtie2 -x ${bt2_prefix} -k 5 -p 4 -f -S /dev/stdout -U - | MUSIC -preprocess SAM stdin temp/${chr_id}" >> temp_map_reads.csh
 done
 chmod 755 temp_map_reads.csh
 
