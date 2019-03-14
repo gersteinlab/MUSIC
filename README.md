@@ -211,11 +211,12 @@ Use this script generate_multimappability_signal.csh under bin/ directory to gen
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <font face="courier">
 cd bin<br>
-./bin/generate_multimappability_signal.csh hg19.fa 50 hg19_indexes/hg19
+./bin/generate_multimappability_signal.csh hg19.fa 50 /home/users/music_user/bt2_indices/hg19_indexes/hg19
 </font>
 </div><br>
-Note that the bowtie indices must be supplied in the command line. For the above command, they are under hg19_indexes/. This processes the FASTA file and 
-writes two temporary scripts (temp_map_reads.csh, temp_process_mapping.csh) that fragments the genome, maps the fragments, and then generates the profile.
+Note that the bowtie indices must be supplied in the command line and the path must be the absolute path. For the above command, they are under /home/users/music_user/bt2_indices/hg19_indexes/hg19.  
+
+This command processes the FASTA file and writes two temporary scripts (temp_map_reads.csh, temp_process_mapping.csh) that fragments the genome, maps the fragments, and then generates the profile.
 Next, it is necessary to run these two scripts, in order:
 <div style="padding:8px;background-color:#ddd;line-height:1.4;">
 <font face="courier">
@@ -227,7 +228,7 @@ After the scripts are run, multi-mappability profile for each chromosome should 
 Each line in the script is a command that maps the reads to a chromosome that can be run in parallel on a cluster. It is important to make sure 'temp_map_reads.csh' 
 finishes before running 'temp_process_mapping.csh'.
 
-Your can also email me (arif.harmanci@yale.edu) to generate multimappability profiles for new species.
+Your can also email me (arif.o.harmanci@uth.tmc.edu) to generate multimappability profiles for new species.
 
 <h2>Datasets</h2>
 The ENCODE datasets can be downloaded from <a href="http://hgdownload.cse.ucsc.edu/goldenPath/hg19/encodeDCC/">UCSC Genome Browser</a>. <br>
